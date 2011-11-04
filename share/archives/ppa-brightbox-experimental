@@ -1,0 +1,3 @@
+# Brightbox experimental PPA
+deb http://ppa.launchpad.net/brightbox/experimental/ubuntu @DISTRIBUTION@ main
+deb-src http://ppa.launchpad.net/brightbox/experimental/ubuntu @DISTRIBUTION@ main

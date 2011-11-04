@@ -1,0 +1,9 @@
+standard^
+linux-virtual
+acpid
+apt-transport-https
+cloud-init
+cloud-initramfs-growroot
+cloud-initramfs-rescuevol
+update-notifier-common
+grub2
