@@ -1,0 +1,137 @@
+#!/bin/sh
+
+## live-build(7) - System Build Scripts
+## Copyright (C) 2006-2011 Daniel Baumann <daniel@debian.org>
+##
+## live-build comes with ABSOLUTELY NO WARRANTY; for details see COPYING.
+## This is free software, and you are welcome to redistribute it
+## under certain conditions; see COPYING for details.
+
+
+set -e
+
+# Including common functions
+. "${LB_BASE:-/usr/share/live/build}"/scripts/build.sh
+
+# Setting static variables
+DESCRIPTION="$(Echo 'build kvm image')"
+HELP=""
+USAGE="${PROGRAM} [--force]"
+
+Arguments "${@}"
+
+# Reading configuration files
+Read_conffiles config/all config/common config/bootstrap config/chroot config/binary config/source
+Set_defaults
+
+if ! In_list virtual-hdd "${LB_BINARY_IMAGES}"
+then
+	exit 0
+fi
+
+Echo_message "Begin building kvm rootfs partition image..."
+
+# Requiring stage file
+Require_stagefile .stage/config .stage/bootstrap .stage/chroot_proc
+
+# Checking stage file
+Check_stagefile .stage/kvm_rootfs
+
+# Checking lock file
+Check_lockfile .lock
+
+# Creating lock file
+Create_lockfile .lock
+
+if [ "${LB_BUILD_WITH_CHROOT}" = "true" ]
+then
+	case "${LB_BINARY_FILESYSTEM}" in
+		ext2|ext3|ext4)
+			Check_package chroot/sbin/mkfs.${LB_BINARY_FILESYSTEM}  e2fsprogs
+			;;
+	esac
+fi
+
+# Restoring cache
+Restore_cache cache/packages_binary
+
+# Installing depends
+Install_package
+
+if [ "${LB_VIRTUAL_ROOT_SIZE}" = 'auto' ]
+then
+	Echo_message "Calculating optimum disk size for image"
+
+	case "${LB_BUILD_WITH_CHROOT}" in
+			true)
+			DU_DIM="$(du -ms chroot/chroot | cut -f1)"
+			INODES="$(find chroot/chroot | wc -l)"
+			;;
+
+		false)
+			DU_DIM="$(du -ms chroot | cut -f1)"
+			INODES="$(find chroot | wc -l)"
+			;;
+	esac
+
+	Echo_message "Image is ${DU_DIM}M in size using ${INODES} inodes"
+        Echo_message "Adding 100M of buffer space"
+	DU_DIM=$(expr "${DU_DIM}" + 100)
+	REAL_DIM="$(Calculate_partition_size ${DU_DIM} ${LB_BINARY_FILESYSTEM})"
+	REAL_INODES="$(Calculate_partition_size ${INODES} ${LB_BINARY_FILESYSTEM})"
+	virtual_root_size=$REAL_DIM
+else
+	virtual_root_size=${LB_VIRTUAL_ROOT_SIZE}
+fi
+
+# Remove old binary
+if [ -f kvm-rootfs-partition.img ]
+then
+	rm -f kvm-rootfs-partition.img
+fi
+
+Echo_message "Creating ${virtual_root_size}M ${LB_BINARY_FILESYSTEM} partition ..."
+dd if=/dev/zero of=kvm-rootfs-partition.img bs=1024k count=0 seek=${virtual_root_size}
+
+if [ "${LB_BUILD_WITH_CHROOT}" = "true" ]
+then
+	mv kvm-rootfs-partition.img chroot
+
+	# hack to recreate mtab from chroot_hacks if its gone for some reason
+	if ! Chroot chroot "test -s /etc/mtab"
+	then
+		Chroot chroot "rm -f /etc/mtab"
+		Chroot chroot "ln -s /proc/mounts /etc/mtab"
+	fi
+
+	case "${LB_BINARY_FILESYSTEM}" in
+		ext2|ext3|ext4)
+			Chroot chroot "mkfs.${LB_BINARY_FILESYSTEM} -F kvm-rootfs-partition.img"
+			;;
+	esac
+
+	mv chroot/kvm-rootfs-partition.img ./
+else
+	case "${LB_BINARY_FILESYSTEM}" in
+		ext2|ext3|ext4)
+			mkfs.${LB_BINARY_FILESYSTEM} . -F kvm-rootfs-partition.img
+			;;
+	esac
+fi
+
+mkdir -p binary.tmp
+${LB_ROOT_COMMAND} mount -o loop kvm-rootfs-partition.img binary.tmp
+Echo_message "Copying files into root partition. This may take a while..."
+cp -a chroot/chroot/* binary.tmp
+
+${LB_ROOT_COMMAND} umount binary.tmp
+rmdir binary.tmp
+
+# Saving cache
+Save_cache cache/packages_binary
+
+# Removing depends
+Remove_package
+
+# Creating stage file
+Create_stagefile .stage/kvm_rootfs

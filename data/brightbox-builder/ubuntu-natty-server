@@ -1,0 +1,7 @@
+architectures="x86_64 i686"
+name="Ubuntu Natty 11.04 server"
+description="login: ubuntu using stored ssh key"
+compatibility=0
+config=ubuntu-server
+distro=natty
+package_list=brightbox-ubuntu-natty-server

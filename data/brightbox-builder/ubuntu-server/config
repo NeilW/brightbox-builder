@@ -1,0 +1,53 @@
+#!/bin/sh
+#distro=natty
+#architecure=i386
+username=ubuntu
+archive_areas="main universe restricted"
+archive="http://archive.ubuntu.com/ubuntu"
+security="http://security.ubuntu.com/ubuntu"
+#other_sources="ppa-brightbox-build ppa-brightbox-experimental"
+#package_list="brightbox-ubuntu-${distro}-server"
+lb config noauto \
+	-d ${distro} --parent-distribution ${distro} \
+	-a "${architecture}" \
+	--package-lists "${package_list}" \
+	--security true --source true --source-images none --backports false  \
+	--volatile true --apt-indices none --clean \
+	--binary-images virtual-hdd --binary-filesystem ext4 \
+        --virtual-root-size auto \
+	--chroot-filesystem plain --archive-areas "${archive_areas}" \
+	--parent-archive-areas "${archive_areas}" \
+	--bootstrap-flavour standard \
+	--parent-mirror-bootstrap "${archive}" \
+	--parent-mirror-chroot "${archive}" \
+	--parent-mirror-chroot-security "${security}" \
+	--parent-mirror-chroot-volatile "${archive}" \
+	--parent-mirror-chroot-backports none \
+	--parent-mirror-binary "${archive}" \
+	--parent-mirror-binary-backports none \
+	--parent-mirror-binary-security "${security}" \
+	--parent-mirror-binary-volatile "${archive}" \
+	--mirror-binary "${archive}" \
+	--mirror-binary-security "${security}" \
+	--mirror-binary-volatile "${archive}" \
+	--mirror-binary-backports none \
+	--mirror-bootstrap "${archive}" \
+	--mirror-debian-installer "${archive}" \
+	--mirror-chroot-security "${archive}" \
+	--mirror-chroot-volatile "${archive}" \
+	--mirror-chroot-backports none \
+	--net-tarball false --username "${username}" --exposed-root true \
+	--keyring-packages ubuntu-keyring --linux-flavours virtual \
+	--linux-packages '' \
+	--initsystem none --initramfs none --mode ubuntu --tasksel tasksel \
+	--bootloader grub2 --debian-installer-gui false \
+        --debian-installer false \
+	--debian-installer-distribution '' \
+	--iso-application none --iso-preparer "Brightbox Cloud Builder" \
+	--iso-publisher "Brightbox Cloud Builder" \
+	--iso-volume 'Cloud Build $(date +%Y%m%d-%H:%M)' --memtest none \
+	--net-root-filesystem none --net-root-path '/srv/ubuntu-live' \
+	--apt-options "--yes --force-yes -o Acquire::http::No-Cache=True -o Acquire::Retries=3 -o APT::Get::AllowUnauthenticated=true" \
+	--root-command sudo \
+	--gzip-options "--fast --rsyncable" \
+        --archives "${other_sources}"

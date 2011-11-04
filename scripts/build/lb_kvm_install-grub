@@ -1,0 +1,157 @@
+#!/bin/sh
+
+## Brightbox Builder - Live Build Scripts
+## Copyright (C) 2011 Brightbox Systems Ltd
+## Author: Neil Wilson
+##
+## brightbox-builder comes with ABSOLUTELY NO WARRANTY; for details see COPYING.
+## This is free software, and you are welcome to redistribute it
+## under certain conditions; see COPYING for details.
+
+
+set -e
+
+# Including common functions
+. "${LB_BASE:-/usr/share/live/build}"/scripts/build.sh
+
+# Setting static variables
+DESCRIPTION="$(Echo 'install grub2 onto kvm disk')"
+HELP=""
+USAGE="${PROGRAM} [--force]"
+
+Arguments "${@}"
+
+# Reading configuration files
+Read_conffiles config/all config/common config/bootstrap config/chroot config/binary config/source
+Set_defaults
+
+if ! In_list virtual-hdd "${LB_BINARY_IMAGES}"
+then
+	exit 0
+fi
+
+Echo_message "Begin installing grub2..."
+
+# Requiring stage file
+Require_stagefile .stage/config .stage/bootstrap .stage/kvm_virtual-hdd .stage/kvm_diskmap
+
+# Checking stage file
+Check_stagefile .stage/kvm_grub
+
+# Checking lock file
+Check_lockfile .lock
+
+# Creating lock file
+Create_lockfile .lock
+
+# Check architecture
+Check_architectures amd64 i386
+Check_crossarchitectures
+
+# Checking depends
+Check_package chroot/usr/bin/update-grub grub2
+
+# Restoring cache
+Restore_cache cache/packages_binary
+
+# Installing depends
+Install_package
+
+disk_device=/dev/msda
+root_partition=/dev/msda1
+
+Echo_message "Obtaining UUID"
+eval $(blkid -o udev "${root_partition}")
+
+# Mount partition
+Echo_message "mounting root partition"
+mkdir -p binary.tmp
+${LB_ROOT_COMMAND} mount "${root_partition}" binary.tmp
+
+# Find kernel and initrd
+kernel=$(ls binary.tmp/boot/vmlinuz* | head -1|sed 's/binary.tmp//')
+initrd=$(ls binary.tmp/boot/initrd* | head -1|sed 's/binary.tmp//')
+
+if [ -z "${kernel}" ]
+then
+	Echo_error "Missing kernel"
+	exit 1
+elif [ -z "${initrd}" ]
+then
+	Echo_error "Missing initrd"
+	exit 1
+fi
+
+# Create boot config
+Echo_message "Creating boot config"
+${LB_ROOT_COMMAND} mount --bind /dev binary.tmp/dev
+
+# Check grub version
+grubdir=/boot/grub
+grub_device=${root_partition}
+modules="biosdisk ext2 part_msdos search_fs_uuid"
+install_drive='(hd0)'
+if Chroot binary.tmp grub-mkimage --version | grep -q '1\.98'
+then
+    target=''
+    install_device='(hd0,1)'
+else
+    target='-O i386-pc'
+    install_device='(hd0,msdos1)'
+fi
+
+mkdir -p binary.tmp/${grubdir}
+cat > binary.tmp/${grubdir}/grub.cfg <<EOF
+# Patented Grub2 GerritUp boot file
+# run update-grub for a real one
+#
+insmod ext2
+search --no-floppy --fs-uuid --set ${ID_FS_UUID}
+linux	${kernel} root=UUID=${ID_FS_UUID} ro quiet nosplash
+initrd  ${initrd}
+boot
+EOF
+
+cat > binary.tmp/${grubdir}/load.cfg <<EOF
+search.fs_uuid ${ID_FS_UUID} root
+set prefix=(\$root)${grubdir}
+EOF
+
+cat > binary.tmp/${grubdir}/device.map <<EOF
+${install_drive}	${disk_device}
+${install_device}	${root_partition}
+EOF
+
+
+#Copy over boot files
+Echo_message "Copying boot files"
+cp -a binary.tmp/usr/lib/grub/i386-pc/* "binary.tmp/${grubdir}"
+
+#Create grub environment
+Echo_message "Checking Grub environment"
+if ! test -f ${grubdir}/grubenv; then
+    Chroot binary.tmp grub-editenv ${grubdir}/grubenv create
+fi
+
+#Create boot sector image
+Echo_message "Creating boot sector"
+Chroot binary.tmp grub-mkimage -v ${target} -p ${grubdir} -c ${grubdir}/load.cfg --output ${grubdir}/core.img ${modules}
+
+#Embed boot setor
+Echo_message "Embedding boot sector in MBR"
+Chroot binary.tmp grub-setup  -v -b boot.img -c core.img -d ${grubdir} -m ${grubdir}/device.map -r "${install_device}" "${install_drive}"
+
+# Remove mounts and loopbacks
+Echo_message "unmounting devices"
+${LB_ROOT_COMMAND} umount binary.tmp/dev
+${LB_ROOT_COMMAND} umount "${root_partition}"
+rmdir binary.tmp
+
+# Saving cache
+Save_cache cache/packages_binary
+
+# Removing depends
+Remove_package
+
+# Creating stage file
+Create_stagefile .stage/kvm_grub

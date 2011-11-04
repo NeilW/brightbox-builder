@@ -1,0 +1,7 @@
+architectures="x86_64 i686"
+name="Ubuntu Precise 12.04 LTS server"
+description="login: ubuntu using stored ssh key"
+compatibility=0
+config=ubuntu-server
+distro=precise
+package_list=brightbox-ubuntu-${distro}-server

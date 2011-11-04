@@ -1,0 +1,132 @@
+#!/bin/sh
+
+## Brightbox Builder - Live Build Scripts
+## Copyright (C) 2011 Brightbox Systems Ltd
+## Author: Neil Wilson
+##
+## brightbox-builder comes with ABSOLUTELY NO WARRANTY; for details see COPYING.
+## This is free software, and you are welcome to redistribute it
+## under certain conditions; see COPYING for details.
+
+
+set -e
+
+# Including common functions
+. "${LB_BASE:-/usr/share/live/build}"/scripts/build.sh
+
+# Setting static variables
+DESCRIPTION="$(Echo 'build kvm disk image')"
+HELP=""
+USAGE="${PROGRAM} [--force]"
+
+Arguments "${@}"
+
+# Reading configuration files
+Read_conffiles config/all config/common config/bootstrap config/chroot config/binary config/source
+Set_defaults
+
+if ! In_list virtual-hdd "${LB_BINARY_IMAGES}"
+then
+	exit 0
+fi
+
+Echo_message "Begin building kvm virtual-hdd image..."
+
+# Requiring stage file
+Require_stagefile .stage/config .stage/bootstrap .stage/binary_chroot .stage/kvm_rootfs
+
+# Checking stage file
+Check_stagefile .stage/kvm_virtual-hdd
+
+# Checking lock file
+Check_lockfile .lock
+
+# Creating lock file
+Create_lockfile .lock
+
+
+if [ "${LB_BUILD_WITH_CHROOT}" = "true" ]
+then
+	Check_package chroot/sbin/parted parted
+fi
+
+# Restoring cache
+Restore_cache cache/packages_binary
+
+# Installing depends
+Install_package
+
+kvm_image=kvm-virtual.img
+root_part=kvm-rootfs-partition.img
+part_type=msdos
+virtual_size=$(expr $(stat --format=%s ${root_part}) / 512 + 128 )
+
+# Remove old binary
+if [ -f "${kvm_image}" ]
+then
+	rm -f "${kvm_image}"
+fi
+
+Echo_message "Creating ${virtual_size} sector virtual disk image"
+
+dd if=/dev/zero of="${kvm_image}" bs=512 count=0 seek=${virtual_size}
+
+if [ "${LB_BUILD_WITH_CHROOT}" = "true" ]
+then
+	mv "${kvm_image}" chroot
+
+	# hack to recreate mtab from chroot_hacks if its gone for some reason
+	if ! Chroot chroot "test -s /etc/mtab"
+	then
+		Chroot chroot "rm -f /etc/mtab"
+		Chroot chroot "ln -s /proc/mounts /etc/mtab"
+	fi
+
+
+	case "${LB_BINARY_FILESYSTEM}" in
+		ext2|ext3|ext4)
+			# Disk format lifted from 'guestfs'. The 64s
+			# free space front and back allows a switch to
+			# GPT as well as grub embedding.
+			Chroot chroot parted -s "${kvm_image}" mklabel ${part_type}
+			Chroot chroot parted -s -a none -- "${kvm_image}" mkpart p "${LB_BINARY_FILESYSTEM}" 64s -65s
+			Chroot chroot parted -s -a none -- "${kvm_image}" print free
+			;;
+	esac
+
+	mv chroot/"${kvm_image}" ./
+else
+	case "${LB_BINARY_FILESYSTEM}" in
+		ext2|ext3|ext4)
+			# Disk format lifted from 'guestfs'. The 64s
+			# free space front and back allows a switch to
+			# GPT as well as grub embedding.
+			parted -s "${kvm_image}" mklabel ${part_type}
+			parted -s -a none -- "${kvm_image}" mkpart p "${LB_BINARY_FILESYSTEM}" 64s -65s
+			parted -s -a none -- "${kvm_image}" print free
+			;;
+	esac
+fi
+
+Echo_message "Disk built. Installing root partition in slot. This may take a while."
+dd "if=${root_part}" "of=${kvm_image}" bs=512 seek=64 conv=nocreat,notrunc,fsync
+
+Echo_message "Mapping block device"
+disk_prefix=msda
+loop_device=$(${LB_ROOT_COMMAND} ${LB_LOSETUP} -f)
+${LB_ROOT_COMMAND} ${LB_LOSETUP} "${loop_device}" "${kvm_image}"
+echo "0 ${virtual_size} linear ${loop_device} 0" | ${LB_ROOT_COMMAND} dmsetup create ${disk_prefix}
+${LB_ROOT_COMMAND} kpartx -av /dev/mapper/${disk_prefix}
+${LB_ROOT_COMMAND} ln -s /dev/mapper/${disk_prefix}* /dev
+
+
+
+# Saving cache
+Save_cache cache/packages_binary
+
+# Removing depends
+Remove_package
+
+# Creating stage file
+Create_stagefile .stage/kvm_virtual-hdd
+Create_stagefile .stage/kvm_diskmap

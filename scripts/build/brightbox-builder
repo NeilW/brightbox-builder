@@ -1,0 +1,126 @@
+#!/bin/sh
+# Brightbox Image Builder
+#
+# Generate a build directory for a distribution
+#
+# (c) 2011 Brightbox Systems Ltd
+# Author: Neil Wilson
+#
+# Licensed under the AGPL-3
+#
+
+LB_BASE="${LB_BASE:-/usr/share/live/build}"
+bb_data=${LB_BASE}/data/brightbox-builder
+
+set -e
+
+usage() {
+cat >&2 <<EOF
+Brightbox Image Builder
+Usage
+	$(basename $0) [--experimental] [distribution-handle]
+
+Images available:
+EOF
+for word in ${bb_data}/*
+do
+	[ -f "${word}" ] && echo "	$(basename ${word})" >&2
+done
+}
+
+fail() {
+  echo "$(basename $0): $1" >&2;
+  exit ${2:-1}
+}
+
+generate_create_header() {
+case "${1:-x86_64}" in
+	x86_64)
+		debarch="amd64"
+		;;
+	i686)
+		debarch="i386"
+		;;
+esac
+cat <<EOF
+#!/bin/sh
+
+export distro="${distro}"
+export other_sources="ppa-brightbox-build${experimental:+ ppa-brightbox-experimental}"
+export architecture="${debarch}"
+export package_list="${package_list}"
+EOF
+}
+
+valid_arch() {
+  case "${1:-i686}" in
+    x86_64)
+	        [ $(uname -m) = "x86_64" ] && return 0 
+		;;
+    i686)  	return 0
+		;;
+  esac
+  echo "Invalid architecture '${1}' for $(uname -m) machine" >&2
+  return 1
+}
+		
+generate_build_dir() {
+	bb_distro=$1
+	template="${bb_data}/${bb_distro}"
+	[ -f "${template}" ] || fail "Can't locate template file for ${bb_distro}"
+	if [ -d "${bb_distro}" ]
+        then
+		action="Refreshing"
+	else
+		action="Creating"
+	fi
+	. ${template}
+	print_build_report
+	for arch in ${architectures}
+	do
+	  valid_arch ${arch} || continue
+	  echo "${action} ${arch} configuration"
+	  arch_autodir="${bb_distro}/${arch}/auto"
+	  [ -d "${arch_autodir}" ] || mkdir -p "${arch_autodir}" || fail "Can't create config directory at ${arch_autodir}"
+	  cp -a ${bb_data}/${config}/clean ${bb_data}/${config}/config ${arch_autodir}
+	  generate_create_header ${arch} | cat - "${bb_data}/${config}/create" >"${bb_distro}/${arch}/create"
+	  chmod a+x "${bb_distro}/${arch}/create"
+	done
+}
+
+print_build_report() {
+	echo "Generating ${experimental:+experimental }build configuration for:"
+	echo 
+	echo "name:          ${name}"
+	echo "description:   ${description}"
+	echo "architectures: ${architectures}"
+	echo "distribution:  ${distro}"
+	echo "config:        ${config}"
+	[ "${compatibility:-0}" -eq 1 ] && echo "compatibility: on"
+	echo
+}
+
+[ "$#" -gt 0 ] || { usage; exit 0; }
+#[ $(id -u) -eq 0 ] || fail "Need to run as root"
+
+for arg
+do
+	case "${arg}" in
+		--experimental)
+			experimental=1
+			shift
+			;;
+		-u|--usage)
+			usage
+			exit 0
+			;;
+		*)	break
+			;;
+	esac
+done
+
+
+for bb_distro
+do
+	generate_build_dir ${bb_distro}
+done

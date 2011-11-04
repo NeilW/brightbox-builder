@@ -1,0 +1,7 @@
+architectures="x86_64 i686"
+name="Ubuntu Maverick 10.10 server"
+description="login: ubuntu using stored ssh key"
+compatibility=0
+config=ubuntu-server
+distro=maverick
+package_list=brightbox-ubuntu-maverick-server

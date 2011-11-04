@@ -142,10 +142,12 @@ case "${LB_BINARY_FILESYSTEM}" in
 		;;
 esac
 
+# Partition sized to leave 64 x 512 byte sectors at the front and back of
+# the disk to allow for embedded bootloaders and GPT partitions.
 case "${LB_BUILD_WITH_CHROOT}" in
 	true)
 		Chroot chroot "parted -s ${FREELO} mklabel ${PARTITION_TABLE_TYPE}" || true
-		Chroot chroot "parted -s ${FREELO} mkpart primary ${PARTITION_TYPE} 0.0 100%" || true
+		Chroot chroot "parted -s ${FREELO} mkpart primary ${PARTITION_TYPE} 64s -65s" || true
 
 		if [ "${LB_BOOTLOADER}" = "syslinux" ]
 		then
@@ -155,7 +157,7 @@ case "${LB_BUILD_WITH_CHROOT}" in
 
 	false)
 		parted -s ${FREELO} mklabel ${PARTITION_TABLE_TYPE} || true
-		parted -s ${FREELO} mkpart primary ${PARTITION_TYPE} 0.0 100% || true
+		parted -s ${FREELO} mkpart primary ${PARTITION_TYPE} 64s -65s || true
 
 		if [ "${LB_BOOTLOADER}" = "syslinux" ]
 		then
