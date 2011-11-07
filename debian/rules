@@ -10,22 +10,22 @@ override_dh_auto_clean:
 	$(MAKE) -C po clean
 
 override_dh_auto_install:
-	$(MAKE) DESTDIR=$(CURDIR)/debian/live-build install
-	$(MAKE) -C po DESTDIR=$(CURDIR)/debian/live-build install
+	$(MAKE) DESTDIR=$(CURDIR)/debian/brightbox-builder install
+	$(MAKE) -C po DESTDIR=$(CURDIR)/debian/brightbox-builder install
 
-	mv debian/live-build/usr/share/doc/live-build/ChangeLog.live-package debian/live-build/usr/share/doc/live-build/changelog.live-package
-	mv debian/live-build/usr/share/doc/live-build/ChangeLog.live-webhelper debian/live-build/usr/share/doc/live-build/changelog.live-webhelper
+	mv debian/brightbox-builder/usr/share/doc/live-build/ChangeLog.live-package debian/live-build/usr/share/doc/live-build/changelog.live-package
+	mv debian/brightbox-builder/usr/share/doc/live-build/ChangeLog.live-webhelper debian/live-build/usr/share/doc/live-build/changelog.live-webhelper
 
-	rm -f debian/live-build/usr/share/doc/live-build/COPYING
-	rm -f debian/live-build/usr/share/doc/live-build/ChangeLog
+	rm -f debian/brightbox-builder/usr/share/doc/live-build/COPYING
+	rm -f debian/brightbox-builder/usr/share/doc/live-build/ChangeLog
 
 	# live-build-cgi
 	mkdir -p debian/live-build-cgi/usr/share/live/build
-	mv debian/live-build/usr/share/live/build/cgi debian/live-build-cgi/usr/share/live/build
+	mv debian/brightbox-builder/usr/share/live/build/cgi debian/live-build-cgi/usr/share/live/build
 
 	# live-build-cron
 	mkdir -p debian/live-build-cron/usr/bin
-	mv debian/live-build/usr/bin/live-build-cron* debian/live-build-cron/usr/bin
+	mv debian/brightbox-builder/usr/bin/live-build-cron* debian/live-build-cron/usr/bin
 
 override_dh_builddeb:
 	dh_builddeb -- -Zgzip -z9
