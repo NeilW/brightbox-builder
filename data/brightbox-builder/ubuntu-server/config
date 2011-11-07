@@ -15,7 +15,7 @@ lb config noauto \
 	--volatile true --apt-indices none --clean \
 	--binary-images hdd --binary-filesystem ext4 \
         --hdd-size auto \
-	--chroot-filesystem plain --archive-areas "${archive_areas}" \
+	--chroot-filesystem none --archive-areas "${archive_areas}" \
 	--parent-archive-areas "${archive_areas}" \
 	--bootstrap-flavour standard \
 	--parent-mirror-bootstrap "${archive}" \
