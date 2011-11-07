@@ -1,44 +1,26 @@
-Source: live-build
+Source: brightbox-builder
 Section: misc
 Priority: optional
-Maintainer: Debian Live Project <debian-live@lists.debian.org>
-Uploaders: Daniel Baumann <daniel@debian.org>
+Maintainer: Neil Wilson <neil@aldur.co.uk>
 Build-Depends: debhelper (>= 8)
 Build-Depends-Indep: gettext
 Standards-Version: 3.9.2
-Homepage: http://live.debian.net/devel/live-build/
-Vcs-Browser: http://live.debian.net/gitweb/?p=live-build.git
-Vcs-Git: git://live.debian.net/git/live-build.git
+Vcs-Browser: https://github.com/NeilW/brightbox-builder
+Vcs-Git: git://github.com/NeilW/brightbox-builder.git
 
-Package: live-build
+Package: brightbox-builder
 Architecture: all
-Depends: ${misc:Depends}, debootstrap | cdebootstrap | cdebootstrap-static
+Depends: ${misc:Depends}, debootstrap 
+Conflicts: live-build
+Replaces: live-build
 Recommends:
  live-boot-doc, live-config-doc, live-manual-html | live-manual, cpio,
- gettext-base, gnu-fdisk
+ gettext-base, gnu-fdisk, brightbox-cli
 Suggests:
  dosfstools, genisoimage, memtest86+ | memtest86, mtools, parted,
- squashfs-tools | mtd-tools, sudo | fakeroot, syslinux | grub,
+ squashfs-tools | mtd-tools, sudo | fakeroot, syslinux | grub | grub2,
  uuid-runtime, win32-loader
-Description: Debian Live - System Build Scripts
- live-build contains the scripts that build a Debian Live system image from a
- configuration directory.
+Description: Virtual Machine Builder Scripts
+ brightbox-builder contains the scripts that build Brightbox virtual
+ machines based on version descriptions.
 
-Package: live-build-cgi
-Architecture: all
-Depends: ${misc:Depends}
-Recommends: apache2 | httpd
-Description: Debian Live - System Build Scripts (cgi frontend)
- live-build contains the scripts that build a Debian Live system image from a
- configuration directory.
- .
- This package contains the cgi frontend.
-
-Package: live-build-cron
-Architecture: all
-Depends: ${misc:Depends}, live-build (= ${source:Version}), cron
-Description: Debian Live - System Build Scripts (cron autobuilder)
- live-build contains the scripts that build a Debian Live system image from a
- configuration directory.
- .
- This package contains the cron autobuilder.
