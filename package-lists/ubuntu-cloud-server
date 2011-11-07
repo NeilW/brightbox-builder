@@ -4,6 +4,7 @@ standard^
 server^
 ubuntu-minimal
 acpid
+cloud-init
 cloud-initramfs-growroot
 cloud-initramfs-rescuevol
 update-notifier-common
