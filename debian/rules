@@ -13,8 +13,8 @@ override_dh_auto_install:
 	$(MAKE) DESTDIR=$(CURDIR)/debian/brightbox-builder install
 	$(MAKE) -C po DESTDIR=$(CURDIR)/debian/brightbox-builder install
 
-	mv debian/brightbox-builder/usr/share/doc/live-build/ChangeLog.live-package debian/live-build/usr/share/doc/live-build/changelog.live-package
-	mv debian/brightbox-builder/usr/share/doc/live-build/ChangeLog.live-webhelper debian/live-build/usr/share/doc/live-build/changelog.live-webhelper
+	mv debian/brightbox-builder/usr/share/doc/live-build/ChangeLog.live-package debian/brightbox-builder/usr/share/doc/live-build/changelog.live-package
+	mv debian/brightbox-builder/usr/share/doc/live-build/ChangeLog.live-webhelper debian/brightbox-builder/usr/share/doc/live-build/changelog.live-webhelper
 
 	rm -f debian/brightbox-builder/usr/share/doc/live-build/COPYING
 	rm -f debian/brightbox-builder/usr/share/doc/live-build/ChangeLog
