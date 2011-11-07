@@ -41,7 +41,7 @@ Losetup ()
 	PARTITION="${3:-1}"
 
 	${LB_ROOT_COMMAND} ${LB_LOSETUP} --read-only "${DEVICE}" "${FILE}"
-	FDISK_OUT="$(${LB_FDISK} -l -u ${DEVICE} 2>&1)"
+	FDISK_OUT="$(${LB_ROOT_COMMAND} ${LB_FDISK} -l -u ${DEVICE} 2>&1)"
 	Lodetach "${DEVICE}"
 
 	LOOPDEVICE="$(echo ${DEVICE}p${PARTITION})"
@@ -52,12 +52,12 @@ Losetup ()
 
 		${LB_ROOT_COMMAND} ${LB_LOSETUP} "${DEVICE}" "${FILE}"
 	else
-		SECTORS="$(echo "$FDISK_OUT" | sed -ne "s|^$LOOPDEVICE[ *]*\([0-9]*\).*|\1|p")"
-		OFFSET="$(expr ${SECTORS} '*' 512)"
+		OFFSET="$(echo "$FDISK_OUT" | grep -m 1 "${LOOPDEVICE}" | awk '{print $2 * 512}')"
+		LENGTH="$(echo "$FDISK_OUT" | grep -m 1 "${LOOPDEVICE}" | awk '{print ($3 - $2 + 1) * 512}')"
 
-		Echo_message "Mounting %s with offset %s" "${DEVICE}" "${OFFSET}"
+		Echo_message "Mounting %s with offset %s and length of %s" "${DEVICE}" "${OFFSET}" "${LENGTH}"
 
-		${LB_ROOT_COMMAND} ${LB_LOSETUP} -o "${OFFSET}" "${DEVICE}" "${FILE}"
+		${LB_ROOT_COMMAND} ${LB_LOSETUP} -o "${OFFSET}" --sizelimit "${LENGTH}" "${DEVICE}" "${FILE}"
 	fi
 }
 
