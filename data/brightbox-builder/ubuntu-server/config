@@ -13,7 +13,7 @@ lb config noauto \
 	--package-lists "${package_list}" \
 	--security true --source true --source-images none --backports false  \
 	--volatile true --apt-indices none --clean \
-	--binary-images virtual-hdd --binary-filesystem ext4 \
+	--binary-images hdd --binary-filesystem ext4 \
         --hdd-size auto \
 	--chroot-filesystem plain --archive-areas "${archive_areas}" \
 	--parent-archive-areas "${archive_areas}" \
