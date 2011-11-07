@@ -56,6 +56,7 @@ fi
 # Building root filesystem
 lb binary_rootfs ${*}
 lb binary_manifest ${*}
+lb kvm_rootfs ${*}
 
 # Prepare images
 #lb binary_packagelists ${*}
@@ -83,12 +84,7 @@ then
 fi
 
 # Building images
-lb binary_iso ${*}
-lb binary_net ${*}
-lb binary_tar ${*}
-lb binary_hdd ${*}
-#lb kvm_rootfs ${*}
-#lb kvm_virtual-hdd ${*}
+lb kvm_hdd ${*}
 #lb kvm_install-grub ${*}
 
 if [ "${LB_BUILD_WITH_CHROOT}" = "true" ]
