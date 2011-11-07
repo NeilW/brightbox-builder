@@ -112,13 +112,13 @@ fi
 # Everything which comes here needs to be cleaned up,
 DU_DIM="$(du -ms binary | cut -f1)"
 REAL_DIM="$(Calculate_partition_size ${DU_DIM} ${LB_BINARY_FILESYSTEM})"
-case "${LB_HDD_SIZE}"
+case "${LB_HDD_SIZE}" in
 	auto)
 		REQUIRED_HDD_SIZE="${REAL_DIM}"
 		ROOT_RESERVED='-m 0'
-		''
+		;;
 	*%)
-		REQUIRED_HDD_SIZE=Scale_number "${REAL_DIM}" "${LB_HDD_SIZE}"
+		REQUIRED_HDD_SIZE=$(Scale_number "${REAL_DIM}" "${LB_HDD_SIZE}")
 		ROOT_RESERVED=''
 		;;
 	*)	
@@ -225,6 +225,7 @@ case "${LB_BINARY_FILESYSTEM}" in
 		;;
 esac
 
+Echo_message "Copying across root filesystem. This may take a while..."
 mkdir -p chroot/binary.tmp
 ${LB_ROOT_COMMAND} mount ${FREELO} chroot/binary.tmp
 cp -r -T ${CP_OPTIONS} binary/ chroot/binary.tmp

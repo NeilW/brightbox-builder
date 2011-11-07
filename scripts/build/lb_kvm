@@ -55,7 +55,6 @@ fi
 
 # Building root filesystem
 lb binary_rootfs ${*}
-lb binary_manifest ${*}
 lb kvm_rootfs ${*}
 
 # Prepare images
