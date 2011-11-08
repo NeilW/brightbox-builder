@@ -283,11 +283,17 @@ then
 		true)
 			if Chroot chroot grub-setup --version | grep -q '1\.98'
 			then
-				INSTALL_DEVICE='(hd0,1)'
+				INSTALL_DEVICE='(hd9,1)'
 			else
-				INSTALL_DEVICE='(hd0,msdos1)'
+				INSTALL_DEVICE='(hd9,msdos1)'
 			fi
-			Chroot chroot grub-setup -v -b boot.img -c core.img -d binary.tmp/boot/grub -m binary/tmp/boot/grub/device.map -r "${INSTALL_DEVICE}" "${MAIN_DISK}"
+			INSTALL_DRIVE='(hd9)'
+cat > binary.tmp/boot/grub/device.map <<EOF
+${INSTALL_DRIVE}	${MAIN_DISK}
+${INSTALL_DEVICE}	${FREELO}
+EOF
+			Chroot chroot grub-setup -v -b boot.img -c core.img -d binary.tmp/boot/grub -m binary.tmp/boot/grub/device.map -r "${INSTALL_DEVICE}" "${INSTALL_DRIVE}"
+			rm binary.tmp/boot/grub/device.map
 			;;
 		*)	echo "Not implemented"
 			exit 1
