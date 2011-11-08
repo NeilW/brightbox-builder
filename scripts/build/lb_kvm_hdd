@@ -222,7 +222,7 @@ case "${LB_BUILD_WITH_CHROOT}" in
 	true)
 		if ! Chroot chroot "test -s /etc/mtab"
 		then
-			Chroot chroot "ln -s /proc/mounts/mtab /etc/mtab"
+			Chroot chroot "ln -sf /proc/mounts /etc/mtab"
 			FAKE_MTAB="true"
 		fi
 		
