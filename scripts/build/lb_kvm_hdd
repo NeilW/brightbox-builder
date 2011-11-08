@@ -220,6 +220,12 @@ esac
 
 case "${LB_BUILD_WITH_CHROOT}" in
 	true)
+		if ! Chroot chroot "test -s /etc/mtab"
+		then
+			Chroot chroot "ln -s /proc/mounts/mtab /etc/mtab"
+			FAKE_MTAB="true"
+		fi
+		
 		Chroot chroot "mkfs.${MKFS} ${MKFS_OPTIONS} ${FREELO}"
 		;;
 
@@ -330,6 +336,11 @@ if [ -n "${MAKEDEV}" ]
 then
 	rm -rf chroot/dev
 	mv chroot/dev.tmp chroot/dev
+fi
+
+if [ "${FAKE_MTAB}" = "true" ]
+then
+	Chroot chroot "rm -f /etc/mtab"
 fi
 
 mv chroot/binary.img ./
