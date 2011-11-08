@@ -278,20 +278,82 @@ fi
 
 if [ "${LB_BOOTLOADER}" = "grub2" ]
 then
-	Echo_message "Installing grub2 boot sector..."
+	Echo_message "Installing grub2 ..."
 	case "${LB_BUILD_WITH_CHROOT}" in
 		true)
+			# Check grub version
 			if Chroot chroot grub-setup --version | grep -q '1\.98'
 			then
+				TARGET_OPTIONS=''
 				INSTALL_DEVICE='(hd9,1)'
 			else
+				TARGET_OPTIONS='-O i386-pc'
 				INSTALL_DEVICE='(hd9,msdos1)'
 			fi
 			INSTALL_DRIVE='(hd9)'
+			MODULES="biosdisk ext2 part_msdos search_fs_uuid"
+
+			Echo_message "Obtaining UUID"
+			eval $(blkid -o udev "${FREELO}")
+
+			# Find kernel and initrd
+			kernel=$(ls chroot/binary.tmp/boot/vmlinuz* | head -1|sed 's|chroot/binary.tmp||')
+			initrd=$(ls chroot/binary.tmp/boot/initrd* | head -1|sed 's|chroot/binary.tmp||')
+
+			if [ -z "${kernel}" ]
+			then
+				Echo_error "Missing kernel"
+				exit 1
+			elif [ -z "${initrd}" ]
+			then
+				Echo_error "Missing initrd"
+				exit 1
+			fi
+
+			# Create boot config
+			Echo_message "Creating boot config"
+
+			# Clean up grub v1 stuff
+			mkdir -p chroot/binary.tmp/boot/grub
+			rm -f chroot/binary.tmp/boot/grub/menu.lst chroot/binary.tmp/boot/grub/default binary.tmp/boot/grub/gfxblacklist.txt
+
+cat > chroot/binary.tmp/boot/grub/grub.cfg <<EOF
+# Patented Grub2 GerritUp boot file
+# run update-grub for a real one
+#
+insmod ext2
+search --no-floppy --fs-uuid --set ${ID_FS_UUID}
+linux	${kernel} root=UUID=${ID_FS_UUID} ro quiet nosplash
+initrd  ${initrd}
+boot
+EOF
+
+cat > chroot/binary.tmp/boot/grub/load.cfg <<EOF
+search.fs_uuid ${ID_FS_UUID} root
+set prefix=(\$root)/boot/grub
+EOF
+
 cat > chroot/binary.tmp/boot/grub/device.map <<EOF
 ${INSTALL_DRIVE}	${MAIN_DISK}
 ${INSTALL_DEVICE}	${FREELO}
 EOF
+
+			#Copy over boot files
+			Echo_message "Copying boot files"
+			cp -a chroot/binary.tmp/usr/lib/grub/i386-pc/* chroot/binary.tmp/boot/grub
+
+			#Create grub environment
+			Echo_message "Checking Grub environment"
+			if ! test -f chroot/binary.tmp/grubenv; then
+			    Chroot chroot grub-editenv binary.tmp/boot/grub/grubenv create
+			fi
+
+			#Create boot sector image
+			Echo_message "Creating boot sector"
+			Chroot chroot grub-mkimage -v ${TARGET_OPTIONS} -p binary.tmp/boot/grub -c binary.tmp/boot/grub/load.cfg --output binary.tmp/boot/grub/core.img ${MODULES}
+
+
+			Echo_message "Installing boot sector"
 			Chroot chroot grub-setup -v -b boot.img -c core.img -d binary.tmp/boot/grub -m binary.tmp/boot/grub/device.map -r "${INSTALL_DEVICE}" "${INSTALL_DRIVE}"
 			rm binary.tmp/boot/grub/device.map
 			;;
