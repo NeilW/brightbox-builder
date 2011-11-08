@@ -73,9 +73,11 @@ case "${LB_BOOTLOADER}" in
 	grub)
 		Check_package chroot/usr/sbin/grub grub
 		;;
-
 	syslinux)
 		Check_package chroot/usr/bin/syslinux syslinux
+		;;
+	grub2)
+		Check_package chroot/usr/sbin/grub-setup grub2
 		;;
 esac
 
@@ -193,7 +195,8 @@ case "${LB_BUILD_WITH_CHROOT}" in
 		;;
 esac
 
-Lodetach ${FREELO}
+MAIN_DISK=${FREELO}
+#Lodetach ${FREELO}
 
 FREELO="$(${LB_LOSETUP} -f)"
 Losetup $FREELO chroot/binary.img 1
@@ -267,6 +270,25 @@ EOF
 fi
 }
 
+if [ "${LB_BOOTLOADER}" = "grub2" ]
+then
+	Echo_message "Installing grub2 boot sector..."
+	case "${LB_BUILD_WITH_CHROOT}" in
+		true)
+			if Chroot chroot grub-setup --version | grep -q '1\.98'
+			then
+				INSTALL_DEVICE='(hd0,1)'
+			else
+				INSTALL_DEVICE='(hd0,msdos1)'
+			fi
+			Chroot chroot grub-setup -v boot.img -p core.img -d binary.tmp/boot/grub -m binary/tmp/boot/grub/device.map -r "{$INSTALL_DEVICE}" "${MAIN_DISK}"
+			;;
+		*)	echo "Not implemented"
+			exit 1
+			;;
+	esac
+fi
+
 ${LB_ROOT_COMMAND} umount chroot/binary.tmp
 rmdir chroot/binary.tmp
 
@@ -287,22 +309,22 @@ Lodetach ${FREELO}
 
 echo "!!! The above error/warning messages can be ignored !!!"
 
-FREELO="$(${LB_LOSETUP} -f)"
-Losetup "${FREELO}" chroot/binary.img 0
+#FREELO="$(${LB_LOSETUP} -f)"
+#Losetup "${FREELO}" chroot/binary.img 0
 
 case "${LB_BUILD_WITH_CHROOT}" in
 	true)
-		Chroot chroot "parted -s ${FREELO} set 1 boot on" || true
-		Chroot chroot "parted -s ${FREELO} set 1 lba off" || true
+		Chroot chroot "parted -s ${MAIN_DISK} set 1 boot on" || true
+		Chroot chroot "parted -s ${MAIN_DISK} set 1 lba off" || true
 		;;
 
 	false)
-		parted -s "${FREELO}" set 1 boot on || true
-		parted -s "${FREELO}" set 1 lba off || true
+		parted -s "${MAIN_DISK}" set 1 boot on || true
+		parted -s "${MAIN_DISK}" set 1 lba off || true
 		;;
 esac
 
-Lodetach ${FREELO}
+Lodetach ${MAIN_DISK}
 
 if [ -n "${MAKEDEV}" ]
 then
