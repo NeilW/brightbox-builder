@@ -14,7 +14,7 @@ set -e
 . "${LB_BASE:-/usr/share/live/build}"/scripts/build.sh
 
 # Setting static variables
-DESCRIPTION="$(Echo 'build binary image')"
+DESCRIPTION="$(Echo 'build disk image')"
 HELP=""
 USAGE="${PROGRAM} [--force]"
 
@@ -288,7 +288,7 @@ then
 				INSTALL_DEVICE='(hd9,msdos1)'
 			fi
 			INSTALL_DRIVE='(hd9)'
-cat > binary.tmp/boot/grub/device.map <<EOF
+cat > chroot/binary.tmp/boot/grub/device.map <<EOF
 ${INSTALL_DRIVE}	${MAIN_DISK}
 ${INSTALL_DEVICE}	${FREELO}
 EOF
