@@ -207,6 +207,22 @@ esac
 # people might do in local hooks, and there might be no initrds at all.
 find chroot/boot -name 'initrd*' -print0 | xargs -r -0 chmod go+r
 
+# Update the mlocate database.  It's convenient for this to be already up to
+# date on the live system, and it means that if the live system is later
+# installed to a hard disk then less work will be required after
+# installation.
+if [ -x chroot/usr/bin/updatedb.mlocate ]; then
+	Chroot chroot updatedb.mlocate
+fi
+
+# Update the Apt Xapian index.  The package would do this itself, but (a) it
+# checks policy-rc.d which says it isn't allowed to, and (b) it wants to
+# build the index in the background which will be racy in the context of
+# live-build.
+if [ -x chroot/usr/sbin/update-apt-xapian-index ]; then
+	Chroot chroot PYTHONDONTWRITEBYTECODE=1 /usr/sbin/update-apt-xapian-index --force --quiet
+fi
+
 # Remove build systems clock drift
 echo "0.0 0 0.0" > chroot/etc/adjtime
 
@@ -217,6 +233,7 @@ rm -f chroot/etc/group- chroot/etc/passwd-
 rm -f chroot/etc/gshadow- chroot/etc/shadow-
 rm -f chroot/var/cache/debconf/*-old
 rm -f chroot/var/lib/dpkg/*-old
+rm -f chroot/var/lib/dbus/machine-id
 rm -f chroot/var/log/apt/term.log
 
 # Delete and re-create temporary directories
