@@ -36,7 +36,7 @@ lb config noauto \
 	--mirror-chroot-security "${archive}" \
 	--mirror-chroot-volatile "${archive}" \
 	--mirror-chroot-backports none \
-	--net-tarball false --username "${username}" --exposed-root true \
+	--net-tarball false --username "${username}" --exposed-root false \ 
 	--keyring-packages ubuntu-keyring --linux-flavours virtual \
 	--linux-packages '' \
 	--initsystem none --initramfs none --mode ubuntu --tasksel tasksel \

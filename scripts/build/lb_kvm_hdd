@@ -126,7 +126,10 @@ case "${LB_HDD_SIZE}" in
 		ROOT_RESERVED=''
 		;;
 esac
-dd if=/dev/zero of=chroot/binary.img bs=1024k count=0 seek=${REQUIRED_HDD_SIZE}
+#Round up to nearest 256M so that inode calculations work properly and
+#add in the partition header.
+REQUIRED_HDD_SIZE=$(expr \( ${REQUIRED_HDD_SIZE} / 256 + 1 \) \* 262144 + 128)
+dd if=/dev/zero of=chroot/binary.img bs=1k count=0 seek=${REQUIRED_HDD_SIZE}
 FREELO="$(${LB_LOSETUP} -f)"
 if [ ! -b chroot/${FREELO} ]
 then
