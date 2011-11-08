@@ -355,7 +355,7 @@ EOF
 
 			Echo_message "Installing boot sector"
 			Chroot chroot grub-setup -v -b boot.img -c core.img -d binary.tmp/boot/grub -m binary.tmp/boot/grub/device.map -r "${INSTALL_DEVICE}" "${INSTALL_DRIVE}"
-			rm binary.tmp/boot/grub/device.map
+			rm chroot/binary.tmp/boot/grub/device.map
 			;;
 		*)	echo "Not implemented"
 			exit 1
