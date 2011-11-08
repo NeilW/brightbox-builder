@@ -130,7 +130,7 @@ esac
 Echo_message "Partion size is ${REQUIRED_HDD_SIZE}M"
 #Round up to nearest 256M so that inode calculations work properly and
 #add in the partition header.
-REQUIRED_HDD_SIZE=$(expr \( ${REQUIRED_HDD_SIZE} / 256 + 1 \) \* 262144 + 128)
+REQUIRED_HDD_SIZE=$(expr \( ${REQUIRED_HDD_SIZE} / 256 + 1 \) \* 262144 + 64)
 Echo_message "Image size is ${REQUIRED_HDD_SIZE}K"
 dd if=/dev/zero of=chroot/binary.img bs=1k count=0 seek=${REQUIRED_HDD_SIZE}
 FREELO="$(${LB_LOSETUP} -f)"
