@@ -51,7 +51,7 @@ export architecture="${debarch}"
 export package_list="${package_list}"
 export name="${name}"
 export description="${description}"
-export compatibility="${compatibility}
+export compatibility="${compatibility}"
 EOF
 }
 
