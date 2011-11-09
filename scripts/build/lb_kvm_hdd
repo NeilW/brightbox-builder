@@ -411,7 +411,11 @@ then
 	Chroot chroot "rm -f /etc/mtab"
 fi
 
-mv chroot/binary.img ./
+TARGET_NAME="${LB_DISTRIBUTION}-${LB_ARCHITECTURES}-$$"
+mv chroot/binary.img ./${TARGET_NAME}
+
+Echo_message "Compressing image"
+gzip ${GZIP_OPTIONS} ${TARGET_NAME}
 
 # Saving cache
 Save_cache cache/packages_binary
