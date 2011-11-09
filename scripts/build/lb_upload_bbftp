@@ -39,6 +39,12 @@ Check_lockfile .lock
 # Creating lock file
 Create_lockfile .lock
 
+if ! which curl > /dev/null 2>&1
+then
+	Echo_error "Can't find curl installed. Please install."
+	exit 1
+fi
+
 if ! which brightbox-accounts > /dev/null 2>&1
 then
 	Echo_error "Can't find brightbox tools. Install brightbox-cli package and configure an api client"
@@ -54,9 +60,13 @@ fi
 BB_ACCOUNT=$(brightbox-accounts -s list 2>/dev/null | awk 'NR>1{exit};{print $1}')
 Echo_message "Uploading image into account ${BB_ACCOUNT}"
 
-BB_FTP_URL=$(brightbox-accounts -s reset_ftp_password ${BB_ACCOUNT} 2>/dev/null | awk '{ ftp_hash[$1] = $2 }; END { printf "ftp://%s:%s@%s/incoming",ftp_hash["library_ftp_user"],ftp_hash["library_ftp_password"],ftp_hash["library_ftp_host"] }')
+BB_FTP_DETAILS=$(brightbox-accounts -s reset_ftp_password ${BB_ACCOUNT} 2>/dev/null)
+BB_FTP_URL=$(echo "${BB_FTP_DETAILS}" | awk '{ ftp_hash[$1] = $2 }; END { printf "ftp://%s/incoming",ftp_hash["library_ftp_host"] }')
+BB_FTP_LOGON=$(echo "${BB_FTP_DETAILS}" | awk '{ ftp_hash[$1] = $2 }; END { printf "%s:%s",ftp_hash["library_ftp_user"],ftp_hash["library_ftp_password"] }')
 
-Echo_message "FTP destination: ${BB_FTP_URL}"
+BB_TARGET_NAME="${LB_DISTRO}-${LB_ARCHITECTURES}-$$"
+
+Echo_message "Going to run gzip --fast -c $BB_TARGET_NAME | curl -T - -s -k -u ${BB_FTP_LOGON} ${BB_FTP_URL}/${BB_TARGET_NAME}.gz"
 
 
 # Creating stage file
