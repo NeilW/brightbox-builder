@@ -5,8 +5,11 @@ username=ubuntu
 archive_areas="main universe restricted"
 archive="http://archive.ubuntu.com/ubuntu"
 security="http://security.ubuntu.com/ubuntu"
+#description="Standard Ubuntu Server with cloud init"
+#name="Ubuntu Natty 11.04 Server"
 #other_sources="ppa-brightbox-build ppa-brightbox-experimental"
 #package_list="brightbox-ubuntu-${distro}-server"
+#compatibility=0
 lb config noauto \
 	-d ${distro} --parent-distribution ${distro} \
 	-a "${architecture}" \
@@ -43,9 +46,9 @@ lb config noauto \
 	--bootloader grub2 --debian-installer-gui false \
         --debian-installer false \
 	--debian-installer-distribution '' \
-	--iso-application none --iso-preparer "Brightbox Cloud Builder" \
-	--iso-publisher "Brightbox Cloud Builder" \
-	--iso-volume 'Cloud Build $(date +%Y%m%d-%H:%M)' --memtest none \
+	--iso-application none --iso-preparer "${compatibility}" \
+	--iso-publisher "${description}" \
+	--iso-volume "${name}" --memtest none \
 	--net-root-filesystem none --net-root-path '/srv/ubuntu-live' \
 	--apt-options "--yes --force-yes -o Acquire::http::No-Cache=True -o Acquire::Retries=3 -o APT::Get::AllowUnauthenticated=true" \
 	--root-command sudo \

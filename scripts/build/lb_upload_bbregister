@@ -44,30 +44,17 @@ fail() {
   exit ${2:-1}
 }
 
-load_template() {
-	bb_distro=$1
-	template="${BB_DATA}/${bb_distro}"
-	[ -f "${template}" ] || fail "Can't locate template file for ${bb_distro
-}"
-	. ${template}
-}
-
-
 if ! which brightbox-images > /dev/null 2>&1
 then
-	Echo_error "Can't find brightbox tools. Install brightbox-cli package and configure an api client"
-	exit 1
+	fail "Can't find brightbox tools. Install brightbox-cli package and configure an api client"
 fi
 
-BB_DATA=${LB_BASE}/data/brightbox-builder
-load_template
-
 Echo_message "Registration"
-Echo_message "name: ${name}"
-Echo_message "description: ${description}"
-Echo_message "username: ${username}"
+Echo_message "name: ${LB_ISO_VOLUME}"
+Echo_message "description: ${LB_ISO_PUBLISHER}"
+Echo_message "username: ${LB_USERNAME}"
 Echo_message "architecture: ${LB_ARCHITECTURES}"
-Echo_message "compatibility: ${compatibility:-0}"
+Echo_message "compatibility: ${LB_ISO_PREPARER:-0}"
 
 
 

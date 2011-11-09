@@ -39,7 +39,7 @@ Check_lockfile .lock
 # Creating lock file
 Create_lockfile .lock
 
-if ! which brightbox-config > /dev/null 2>&1
+if ! which brightbox-accounts > /dev/null 2>&1
 then
 	Echo_error "Can't find brightbox tools. Install brightbox-cli package and configure an api client"
 	exit 1
@@ -51,12 +51,11 @@ then
 	exit 1
 fi
 
-BB_CONFIG=$(brightbox-config client_list 2>&1 | awk '/*/{sub(/*/,""); print $1}')
-BB_ACCOUNT=$(brightbox-accounts -s list 2>/dev/null | awk '{print $1}')
+BB_ACCOUNT=$(brightbox-accounts -s list 2>/dev/null | awk 'NR>1{exit};{print $1}')
+Echo_message "Uploading image into account ${BB_ACCOUNT}"
 
-BB_FTP_URL=$(brightbox-accounts -s reset_ftp_password 2>/dev/null | awk '{ ftp_hash[$1] = $2 }; END { printf "ftp://%s:%s@%s/incoming",ftp_hash["library_ftp_user:"],ftp_hash["library_ftp_password:"],ftp_hash["library_ftp_host:"] }')
+BB_FTP_URL=$(brightbox-accounts -s reset_ftp_password ${BB_ACCOUNT} 2>/dev/null | awk '{ ftp_hash[$1] = $2 }; END { printf "ftp://%s:%s@%s/incoming",ftp_hash["library_ftp_user:"],ftp_hash["library_ftp_password:"],ftp_hash["library_ftp_host:"] }')
 
-Echo_message "Uploading image using '${BB_CONFIG}' configuration"
 Echo_message "FTP destination: ${BB_FTP_URL}"
 
 

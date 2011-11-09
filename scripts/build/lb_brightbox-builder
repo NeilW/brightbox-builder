@@ -49,6 +49,9 @@ export distro="${distro}"
 export other_sources="ppa-brightbox-build${experimental:+ ppa-brightbox-experimental}"
 export architecture="${debarch}"
 export package_list="${package_list}"
+export name="${name}"
+export description="${description}"
+export compatibility="${compatibility}
 EOF
 }
 
