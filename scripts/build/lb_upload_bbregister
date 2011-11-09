@@ -1,0 +1,75 @@
+#!/bin/sh
+
+## live-build(7) - System Build Scripts
+## Copyright (C) 2011 Brightbox Systems
+## Author: Neil Wilson
+##
+## live-build comes with ABSOLUTELY NO WARRANTY; for details see COPYING.
+## This is free software, and you are welcome to redistribute it
+## under certain conditions; see COPYING for details.
+
+
+set -e
+
+# Including common functions
+. "${LB_BASE:-/usr/share/live/build}"/scripts/build.sh
+
+# Setting static variables
+DESCRIPTION="$(Echo 'Upload binary image to FTP site')"
+HELP=""
+USAGE="${PROGRAM} [--force]"
+
+Arguments "${@}"
+
+# Reading configuration files
+Read_conffiles config/all config/common config/bootstrap config/chroot config/binary config/source
+Set_defaults
+
+Echo_message "Begin uploading image to FTP"
+
+# Requiring stage file
+Require_stagefile .stage/bb_upload
+
+# Checking stage file
+Check_stagefile .stage/bb_register
+
+# Checking lock file
+Check_lockfile .lock
+
+# Creating lock file
+Create_lockfile .lock
+
+fail() {
+  Echo_error "$1"
+  exit ${2:-1}
+}
+
+load_template() {
+	bb_distro=$1
+	template="${BB_DATA}/${bb_distro}"
+	[ -f "${template}" ] || fail "Can't locate template file for ${bb_distro
+}"
+	. ${template}
+}
+
+
+if ! which brightbox-images > /dev/null 2>&1
+then
+	Echo_error "Can't find brightbox tools. Install brightbox-cli package and configure an api client"
+	exit 1
+fi
+
+BB_DATA=${LB_BASE}/data/brightbox-builder
+load_template
+
+Echo_message "Registration"
+Echo_message "name: ${name}"
+Echo_message "description: ${description}"
+Echo_message "username: ${username}"
+Echo_message "architecture: ${LB_ARCHITECTURES}"
+Echo_message "compatibility: ${compatibility:-0}"
+
+
+
+# Creating stage file
+Create_stagefile .stage/bb_register
