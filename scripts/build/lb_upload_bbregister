@@ -66,8 +66,9 @@ case $LB_ARCHITECTURES in
 esac
 [ "${LB_ISO_PREPARER:-0}" = 1 ] && compat="--mode=compatibility" 
 
-Echo_message_running "Registering ${LB_ISO_VOLUME} (${LB_ARCHITECTURES})"
-brightbox-images register --arch="${target_arch}" ${compat} --name="${LB_ISO_VOLUME}" --username="${LB_USERNAME}" --description="${LB_ISO_PUBLISHER}" ${LB_DISTRIBUTION}*
+TARGET_NAME=${LB_DISTRIBUTION}*
+Echo_message_running "Registering ${LB_ISO_VOLUME} (${LB_ARCHITECTURES}) from ${TARGET_NAME}"
+brightbox-images register --arch="${target_arch}" ${compat} --name="${LB_ISO_VOLUME}" --username="${LB_USERNAME}" --description="${LB_ISO_PUBLISHER}" --source="${TARGET_NAME}"
 Echo_status
 
 
