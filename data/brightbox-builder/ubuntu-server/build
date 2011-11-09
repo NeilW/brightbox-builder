@@ -1,0 +1,7 @@
+set -e 
+lb testroot
+lb clean
+lb config
+lb bootstrap
+lb chroot
+lb kvm

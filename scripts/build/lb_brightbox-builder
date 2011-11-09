@@ -10,7 +10,7 @@
 #
 
 LB_BASE="${LB_BASE:-/usr/share/live/build}"
-bb_data=${LB_BASE}/data/brightbox-builder
+BB_DATA=${LB_BASE}/data/brightbox-builder
 
 set -e
 
@@ -22,7 +22,7 @@ Usage
 
 Images available:
 EOF
-for word in ${bb_data}/*
+for word in ${BB_DATA}/*
 do
 	[ -f "${word}" ] && echo "	$(basename ${word})" >&2
 done
@@ -63,18 +63,23 @@ valid_arch() {
   echo "Invalid architecture '${1}' for $(uname -m) machine" >&2
   return 1
 }
+
+load_template() {
+	bb_distro=$1
+	template="${BB_DATA}/${bb_distro}"
+	[ -f "${template}" ] || fail "Can't locate template file for ${bb_distro}"
+	. ${template}
+}
 		
 generate_build_dir() {
 	bb_distro=$1
-	template="${bb_data}/${bb_distro}"
-	[ -f "${template}" ] || fail "Can't locate template file for ${bb_distro}"
 	if [ -d "${bb_distro}" ]
         then
 		action="Refreshing"
 	else
 		action="Creating"
 	fi
-	. ${template}
+	load_template ${bb_distro}
 	print_build_report
 	for arch in ${architectures}
 	do
@@ -82,9 +87,19 @@ generate_build_dir() {
 	  echo "${action} ${arch} configuration"
 	  arch_autodir="${bb_distro}/${arch}/auto"
 	  [ -d "${arch_autodir}" ] || mkdir -p "${arch_autodir}" || fail "Can't create config directory at ${arch_autodir}"
-	  cp -a ${bb_data}/${config}/clean ${bb_data}/${config}/config ${arch_autodir}
-	  generate_create_header ${arch} | cat - "${bb_data}/${config}/create" >"${bb_distro}/${arch}/create"
-	  chmod a+x "${bb_distro}/${arch}/create"
+	  cp -a ${BB_DATA}/${config}/clean ${BB_DATA}/${config}/config ${arch_autodir}
+	  generate_create_header ${arch} | cat - "${BB_DATA}/${config}/build" >"${arch_autodir}/build"
+	  chmod a+x "${arch_autodir}/build"
+	done
+}
+
+build_distro() {
+	bb_distro=$1
+	load_template ${bb_distro}
+	for arch in ${architectures}
+	do
+		(cd ${bb_distro}/${arch}; exec sudo lb build) > ${bb_distro}/${arch}/build.log 2>&1 &
+		echo "Building ${name} (${arch}) in process $!"
 	done
 }
 
@@ -124,3 +139,10 @@ for bb_distro
 do
 	generate_build_dir ${bb_distro}
 done
+
+for bb_distro
+do
+	build_distro ${bb_distro}
+done
+
+wait

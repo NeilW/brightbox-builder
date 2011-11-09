@@ -1,7 +1,0 @@
-[ $(id -u) -eq 0 ] || { echo "$(basename $0): Need to run as root" >&2; exit 1; }
-{
-lb clean &&
-lb config &&
-lb bootstrap &&
-lb chroot
- } | tee binary.log
