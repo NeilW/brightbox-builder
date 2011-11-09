@@ -101,8 +101,17 @@ build_distro() {
 	load_template ${bb_distro}
 	for arch in ${architectures}
 	do
-		(cd ${bb_distro}/${arch}; sudo lb build && exec lb upload) > ${bb_distro}/${arch}/build.log 2>&1 &
+		(cd ${bb_distro}/${arch}; exec sudo lb build) > ${bb_distro}/${arch}/build.log 2>&1 &
 		echo "Building ${name} (${arch}) in process $!"
+	done
+}
+
+upload_distro() {
+	bb_distro=$1
+	load_template ${bb_distro}
+	for arch in ${architectures}
+	do
+		(cd ${bb_distro}/${arch}; exec lb upload)
 	done
 }
 
@@ -149,3 +158,7 @@ do
 done
 
 wait
+for bb_distro
+do
+	upload_distro ${bb_distro}
+done
