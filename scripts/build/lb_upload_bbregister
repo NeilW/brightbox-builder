@@ -56,6 +56,19 @@ Echo_message "username: ${LB_USERNAME}"
 Echo_message "architecture: ${LB_ARCHITECTURES}"
 Echo_message "compatibility: ${LB_ISO_PREPARER:-0}"
 
+case $LB_ARCHITECTURES in
+	i386)
+		target_arch="i686"
+		;;
+	amd64)
+		target_arch="x86_64"
+		;;
+esac
+[ "${LB_ISO_PREPARER:-0}" = 1 ] && compat="--mode=compatibility" 
+
+Echo_message_running "Registering ${LB_ISO_VOLUME} (${LB_ARCHITECTURES})"
+brightbox-images register --arch="${target_arch}" ${compat} --name="${LB_ISO_VOLUME}" --username="${LB_USERNAME}" --description="${LB_ISO_PUBLISHER}" ${LB_DISTRIBUTION}*
+Echo_status
 
 
 # Creating stage file
