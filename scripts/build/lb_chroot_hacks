@@ -24,6 +24,12 @@ Arguments "${@}"
 Read_conffiles config/all config/common config/bootstrap config/chroot config/binary config/source
 Set_defaults
 
+if In_list hdd "${LB_BINARY_IMAGES}"
+then
+	Echo_message "Hacks disabled for Hard Disk builds. Relying on configuration packages"
+	exit 0
+fi
+ 
 Echo_message "Begin executing hacks..."
 
 # Requiring stage file
