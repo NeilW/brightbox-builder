@@ -340,7 +340,7 @@ EOF
 
 			#Copy over boot files
 			Echo_message "Copying boot files"
-			grubdir=chroot/binary.tmp/boot.grub
+			grubdir=chroot/binary.tmp/boot/grub
 			localedir=chroot/binary.tmp/usr/share/locale
 			cp -a chroot/binary.tmp/usr/lib/grub/i386-pc/* ${grubdir}
 			mkdir -p ${grubdir}/locale
@@ -363,7 +363,7 @@ EOF
 
 			Echo_message "Installing boot sector"
 			Chroot chroot grub-setup -v -b boot.img -c core.img -d binary.tmp/boot/grub -m binary.tmp/boot/grub/device.map -r "${INSTALL_DEVICE}" "${INSTALL_DRIVE}"
-			rm chroot/binary.tmp/boot/grub/device.map
+			rm ${grubdir}/device.map
 			;;
 		*)	echo "Not implemented"
 			exit 1
