@@ -340,7 +340,15 @@ EOF
 
 			#Copy over boot files
 			Echo_message "Copying boot files"
-			cp -a chroot/binary.tmp/usr/lib/grub/i386-pc/* chroot/binary.tmp/boot/grub
+			grubdir=chroot/binary.tmp/boot.grub
+			localedir=chroot/binary.tmp/usr/share/locale
+			cp -a chroot/binary.tmp/usr/lib/grub/i386-pc/* ${grubdir}
+			mkdir -p ${grubdir}/locale
+			for dir in ${localedir}/* ${localedir}-langpack/*; do
+			  if test -f "$dir/LC_MESSAGES/grub.mo"; then
+			    cp -f "$dir/LC_MESSAGES/grub.mo" "${grubdir}/locale/${dir##*/}.mo"
+			  fi
+			done
 
 			#Create grub environment
 			Echo_message "Checking Grub environment"
