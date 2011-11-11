@@ -243,7 +243,7 @@ esac
 Echo_message "Copying across root filesystem. This may take a while..."
 mkdir -p chroot/binary.tmp
 ${LB_ROOT_COMMAND} mount ${FREELO} chroot/binary.tmp
-cp -r -T ${CP_OPTIONS} binary/ chroot/binary.tmp
+cp -a -T ${CP_OPTIONS} binary/ chroot/binary.tmp
 
 FIXME()
 {
