@@ -90,8 +90,8 @@ generate_build_dir() {
 	  echo "${action} ${arch} configuration"
 	  arch_autodir="${bb_release}/${arch}/auto"
 	  [ -d "${arch_autodir}" ] || mkdir -p "${arch_autodir}" || fail "Can't create config directory at ${arch_autodir}"
-	  cp -a ${BB_DATA}/${config}/clean ${BB_DATA}/${config}/config ${arch_autodir}
-	  generate_create_header ${arch} | cat - "${BB_DATA}/${config}/build" >"${arch_autodir}/build"
+	  cp -a ${BB_DATA}/${distribution_config}/clean ${BB_DATA}/${distribution_config}/config ${arch_autodir}
+	  generate_create_header ${arch} | cat - "${BB_DATA}/${distribution_config}/build" >"${arch_autodir}/build"
 	  chmod a+x "${arch_autodir}/build"
 	done
 }
