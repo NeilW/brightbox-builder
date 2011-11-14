@@ -1,5 +1,5 @@
 #!/bin/sh
-#distro=natty
+#release=natty
 #architecure=i386
 username=ubuntu
 archive_areas="main universe restricted"
@@ -8,16 +8,16 @@ security="http://security.ubuntu.com/ubuntu"
 #description="Standard Ubuntu Server with cloud init"
 #name="Ubuntu Natty 11.04 Server"
 #other_sources="ppa-brightbox-build ppa-brightbox-experimental"
-#package_list="brightbox-ubuntu-${distro}-server"
+#package_list="brightbox-ubuntu-${release}-server"
 #compatibility=0
 lb config noauto \
-	-d ${distro} --parent-distribution ${distro} \
+	-d ${release} --parent-distribution ${release} \
 	-a "${architecture}" \
 	--package-lists "${package_list}" \
 	--security true --source true --source-images none --backports false  \
 	--volatile true --apt-indices none --clean \
 	--binary-images hdd --binary-filesystem ext4 \
-        --hdd-size 20% --hdd-label "${distro}-rootfs" \
+        --hdd-size 20% --hdd-label "${release}-rootfs" \
 	--chroot-filesystem none --archive-areas "${archive_areas}" \
 	--parent-archive-areas "${archive_areas}" \
 	--bootstrap-flavour standard \

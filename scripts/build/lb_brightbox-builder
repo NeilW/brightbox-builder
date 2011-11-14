@@ -45,7 +45,7 @@ esac
 cat <<EOF
 #!/bin/sh
 
-export distro="${distro}"
+export release="${release}"
 export other_sources="ppa-brightbox-build${experimental:+ ppa-brightbox-experimental}"
 export architecture="${debarch}"
 export package_list="${package_list}"
@@ -68,27 +68,27 @@ valid_arch() {
 }
 
 load_template() {
-	bb_distro=$1
-	template="${BB_DATA}/${bb_distro}"
-	[ -f "${template}" ] || fail "Can't locate template file for ${bb_distro}"
+	bb_release=$1
+	template="${BB_DATA}/${bb_release}"
+	[ -f "${template}" ] || fail "Can't locate template file for ${bb_release}"
 	. ${template}
 }
 		
 generate_build_dir() {
-	bb_distro=$1
-	if [ -d "${bb_distro}" ]
+	bb_release=$1
+	if [ -d "${bb_release}" ]
         then
 		action="Refreshing"
 	else
 		action="Creating"
 	fi
-	load_template ${bb_distro}
+	load_template ${bb_release}
 	print_build_report
 	for arch in ${architectures}
 	do
 	  valid_arch ${arch} || continue
 	  echo "${action} ${arch} configuration"
-	  arch_autodir="${bb_distro}/${arch}/auto"
+	  arch_autodir="${bb_release}/${arch}/auto"
 	  [ -d "${arch_autodir}" ] || mkdir -p "${arch_autodir}" || fail "Can't create config directory at ${arch_autodir}"
 	  cp -a ${BB_DATA}/${config}/clean ${BB_DATA}/${config}/config ${arch_autodir}
 	  generate_create_header ${arch} | cat - "${BB_DATA}/${config}/build" >"${arch_autodir}/build"
@@ -96,33 +96,33 @@ generate_build_dir() {
 	done
 }
 
-build_distro() {
-	bb_distro=$1
-	load_template ${bb_distro}
+build_release() {
+	bb_release=$1
+	load_template ${bb_release}
 	for arch in ${architectures}
 	do
 		echo "Building ${name} (${arch})"
-		(cd ${bb_distro}/${arch}; exec sudo lb build) > ${bb_distro}/${arch}/build.log 2>&1 
+		(cd ${bb_release}/${arch}; exec sudo lb build) > ${bb_release}/${arch}/build.log 2>&1 || fail "Failed to build ${name} (${arch}) - check logs"
 	done
 }
 
-upload_distro() {
-	bb_distro=$1
-	load_template ${bb_distro}
+upload_release() {
+	bb_release=$1
+	load_template ${bb_release}
 	for arch in ${architectures}
 	do
-		(cd ${bb_distro}/${arch}; exec lb upload)
+		(cd ${bb_release}/${arch}; exec lb upload)
 	done
 }
 
 print_build_report() {
 	echo "Generating ${experimental:+experimental }build configuration for:"
 	echo 
-	echo "name:          ${name}"
-	echo "description:   ${description}"
-	echo "architectures: ${architectures}"
-	echo "distribution:  ${distro}"
-	echo "config:        ${config}"
+	echo "name:          		${name}"
+	echo "description:   		${description}"
+	echo "architectures: 		${architectures}"
+	echo "distribution config:  	${distribution_config}"
+	echo "release:        		${release}"
 	[ "${compatibility:-0}" -eq 1 ] && echo "compatibility: on"
 	echo
 }
@@ -147,17 +147,17 @@ do
 done
 
 
-for bb_distro
+for bb_release
 do
-	generate_build_dir ${bb_distro}
+	generate_build_dir ${bb_release}
 done
 
-for bb_distro
+for bb_release
 do
-	build_distro ${bb_distro}
+	build_release ${bb_release}
 done
 
-for bb_distro
+for bb_release
 do
-	upload_distro ${bb_distro}
+	upload_release ${bb_release}
 done
