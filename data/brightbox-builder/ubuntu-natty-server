@@ -2,6 +2,6 @@ architectures="x86_64 i686"
 name="Ubuntu Natty 11.04 server"
 description="Standard server with cloud-init"
 compatibility=0
-config=ubuntu-server
+config=Ubuntu
 distro=natty
 package_list=brightbox-ubuntu-natty-server

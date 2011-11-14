@@ -2,6 +2,6 @@ architectures="x86_64 i686"
 name="Ubuntu Precise 12.04 LTS server"
 description="Standard server with cloud-init"
 compatibility=0
-config=ubuntu-server
+config=Ubuntu
 distro=precise
 package_list=brightbox-ubuntu-${distro}-server

@@ -2,6 +2,6 @@ architectures="x86_64 i686"
 name="Ubuntu Maverick 10.10 server"
 description="Standard server with cloud-init"
 compatibility=0
-config=ubuntu-server
+config=Ubuntu
 distro=maverick
 package_list=brightbox-ubuntu-maverick-server
