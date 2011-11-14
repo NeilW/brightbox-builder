@@ -282,7 +282,7 @@ then
 	case "${LB_BUILD_WITH_CHROOT}" in
 		true)
 			# Check grub version
-			if Chroot chroot grub-setup --version | grep -q '1\.98'
+			if Chroot chroot grub-setup --version | grep -q '1\.98-'
 			then
 				TARGET_OPTIONS=''
 				INSTALL_DEVICE='(hd9,1)'
