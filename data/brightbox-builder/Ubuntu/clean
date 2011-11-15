@@ -2,6 +2,5 @@
 
 lb clean noauto "${@}"
 rm -rf config
-rm -f binary.log
-rm -f kvm*.img
+rm -f build.log
 rm -f *.gz
