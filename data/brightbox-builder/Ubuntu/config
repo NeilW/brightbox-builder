@@ -17,7 +17,7 @@ lb config noauto \
 	--security true --source true --source-images none --backports false  \
 	--volatile true --apt-indices none --clean \
 	--binary-images hdd --binary-filesystem ext4 \
-        --hdd-size 20% --hdd-label "${release}-rootfs" \
+        --hdd-size 20% --hdd-label "ubuntu-rootfs" \
 	--chroot-filesystem none --archive-areas "${archive_areas}" \
 	--parent-archive-areas "${archive_areas}" \
 	--bootstrap-flavour standard \
