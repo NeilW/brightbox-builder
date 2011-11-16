@@ -102,7 +102,7 @@ build_release() {
 	for arch in ${architectures}
 	do
 		echo "Building ${name} (${arch})"
-		(cd ${bb_release}/${arch}; exec sudo lb build) > ${bb_release}/${arch}/build.log 2>&1 || fail "Failed to build ${name} (${arch}) - check logs"
+		(cd ${bb_release}/${arch}; exec sudo lb build > build.log 2>&1) || fail "Failed to build ${name} (${arch}) - check logs"
 	done
 }
 
