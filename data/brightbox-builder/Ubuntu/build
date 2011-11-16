@@ -1,8 +1,8 @@
 set -e 
 lb testroot
 lb clean
-lb config
-{ lb bootstrap
+{ lb config
+lb bootstrap
 lb chroot
 lb kvm
-} > build.log 2>&1
+} 2>&1 | tee build.log
