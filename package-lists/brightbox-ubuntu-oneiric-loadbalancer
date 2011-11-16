@@ -1,3 +1,1 @@
-#include <brightbox-ubuntu-oneiric-server>
-domtrix-lb
-haproxy
+cloud-build-lb
