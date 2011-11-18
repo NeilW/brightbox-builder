@@ -4,4 +4,4 @@ description="Standard server with cloud-init"
 compatibility=0
 distribution_config=Ubuntu
 release=precise
-package_list=brightbox-ubuntu-${distro}-server
+package_list=brightbox-ubuntu-${release}-server
