@@ -116,14 +116,16 @@ upload_release() {
 }
 
 print_build_report() {
-	echo "Generating ${experimental:+experimental }build configuration for:"
-	echo 
-	echo "name:          		${name}"
-	echo "description:   		${description}"
-	echo "architectures: 		${architectures}"
-	echo "distribution config:  	${distribution_config}"
-	echo "release:        		${release}"
-	[ "${compatibility:-0}" -eq 1 ] && echo "compatibility: on"
+	cat <<EOF
+Generating ${experimental:+experimental }build configuration for:
+
+name:          		${name}
+description:   		${description}
+architectures: 		${architectures}
+distribution config:  	${distribution_config}
+release:        	${release}
+EOF
+	[ "${compatibility:-0}" -eq 1 ] && echo "compatibility:		on"
 	echo
 }
 
