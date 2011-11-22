@@ -77,7 +77,7 @@ case "${LB_BOOTLOADER}" in
 		Check_package chroot/usr/bin/syslinux syslinux
 		;;
 	grub2)
-		Check_package chroot/usr/sbin/grub-setup grub2
+		Check_package chroot/usr/sbin/grub-setup grub-pc
 		;;
 esac
 
