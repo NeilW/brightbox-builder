@@ -1,0 +1,435 @@
+#!/bin/sh
+
+## live-build(7) - System Build Scripts
+## Copyright (C) 2006-2011 Daniel Baumann <daniel@debian.org>
+##
+## live-build comes with ABSOLUTELY NO WARRANTY; for details see COPYING.
+## This is free software, and you are welcome to redistribute it
+## under certain conditions; see COPYING for details.
+
+
+set -e
+
+# Including common functions
+. "${LB_BASE:-/usr/share/live/build}"/scripts/build.sh
+
+# Setting static variables
+DESCRIPTION="$(Echo 'build disk image')"
+HELP=""
+USAGE="${PROGRAM} [--force]"
+
+Arguments "${@}"
+
+# Reading configuration files
+Read_conffiles config/all config/common config/bootstrap config/chroot config/binary config/source
+Set_defaults
+
+if ! In_list hdd "${LB_BINARY_IMAGES}"
+then
+	exit 0
+fi
+
+Echo_message "Begin building binary hdd image..."
+
+# Requiring stage file
+Require_stagefile .stage/chroot_proc
+Require_stagefile .stage/kvm_rootfs
+
+# Checking stage file
+Check_stagefile .stage/kvm_hdd
+
+# Checking lock file
+Check_lockfile .lock
+
+# Creating lock file
+Create_lockfile .lock
+
+# Checking depends
+Check_package chroot/sbin/mkdosfs dosfstools
+Check_package chroot/usr/share/doc/mtools mtools
+Check_package chroot/sbin/parted parted
+
+Scale_number()
+{
+	SCALE_PERCENTAGE=$(echo "$2" | sed 's/%//')
+	expr "$1" \* \( 100 + "${SCALE_PERCENTAGE}" \) / 100 
+}
+
+if [ "${LB_ARCHITECTURES}" = "sparc" ]
+then
+	case "${LB_BINARY_FILESYSTEM}" in
+		ext2|ext3|ext4)
+			Check_package chroot/sbin/mkfs.${LB_BINARY_FILESYSTEM} e2fsprogs
+			;;
+
+		*)
+			Echo_error "Sparc only supports booting from ext2, ext3, ext4 or ufs."
+			exit 1
+			;;
+	esac
+fi
+
+case "${LB_BOOTLOADER}" in
+	grub)
+		Check_package chroot/usr/sbin/grub grub
+		;;
+	syslinux)
+		Check_package chroot/usr/bin/syslinux syslinux
+		;;
+	grub2)
+		Check_package chroot/usr/sbin/grub-setup grub-pc
+		;;
+esac
+
+# Restoring cache
+Restore_cache cache/packages_binary
+
+# Installing depends
+Install_package
+
+# Remove old binary
+if [ -f binary.img ]
+then
+	rm -f binary.img
+fi
+
+# Enforce fat32 if we find individual files bigger than 2GB
+if [ "${LB_BINARY_FILESYSTEM}" = "fat16" ] && [ -n "$(find binary -size +1999M)" ]
+then
+	Echo_warning "FAT16 doesn't support files larger than 2GB, automatically enforcing FAT32."
+
+	LB_BINARY_FILESYSTEM="fat32"
+	export LB_BINARY_FILESYSTEM
+fi
+
+# Enforce fat32 if we have images in total bigger than 2GB
+if [ "${LB_BINARY_FILESYSTEM}" = "fat16" ] && [ "$(du -s binary | awk '{ print $1 }')" -gt "1900000" ]
+then
+	Echo_warning "FAT16 doesn't support partitions larger than 2GB, automatically enforcing FAT32"
+
+	LB_BINARY_FILESYSTEM="fat32"
+	export LB_BINARY_FILESYSTEM
+fi
+
+# Everything which comes here needs to be cleaned up,
+DU_DIM="$(du -ms binary | cut -f1)"
+REAL_DIM="$(Calculate_partition_size ${DU_DIM} ${LB_BINARY_FILESYSTEM})"
+Echo_message "Files take up ${DU_DIM}M on disk"
+case "${LB_HDD_SIZE}" in
+	auto)
+		REQUIRED_HDD_SIZE="${REAL_DIM}"
+		ROOT_RESERVED='-m 0'
+		;;
+	*%)
+		REQUIRED_HDD_SIZE=$(Scale_number "${REAL_DIM}" "${LB_HDD_SIZE}")
+		ROOT_RESERVED=''
+		;;
+	*)	
+		REQUIRED_HDD_SIZE="${LB_HDD_SIZE}"
+		ROOT_RESERVED=''
+		;;
+esac
+Echo_message "Partion size is ${REQUIRED_HDD_SIZE}M"
+#Round up to nearest 256M so that inode calculations work properly and
+#add in the partition header.
+REQUIRED_HDD_SIZE=$(expr \( ${REQUIRED_HDD_SIZE} / 256 + 1 \) \* 262144 + 64)
+Echo_message "Image size is ${REQUIRED_HDD_SIZE}K"
+dd if=/dev/zero of=chroot/binary.img bs=1k count=0 seek=${REQUIRED_HDD_SIZE}
+FREELO="$(${LB_LOSETUP} -f)"
+if [ ! -b chroot/${FREELO} ]
+then
+	MAKEDEV="true"
+
+	mv chroot/dev chroot/dev.tmp
+	find /dev | cpio -dmpu chroot
+fi
+
+echo "!!! The following error/warning messages can be ignored !!!"
+Losetup $FREELO chroot/binary.img 0
+
+case "${LB_ARCHITECTURES}" in
+	sparc)
+		PARTITION_TABLE_TYPE="sun"
+		;;
+	*)
+		PARTITION_TABLE_TYPE="msdos"
+		;;
+esac
+
+case "${LB_BINARY_FILESYSTEM}" in
+	ext2|ext3|ext4)
+		PARTITION_TYPE="ext2"
+		;;
+
+	fat16|fat32)
+		PARTITION_TYPE="${LB_BINARY_FILESYSTEM}"
+		;;
+
+	*)
+		Echo_error "Unsupported binary filesystem %s" "${LB_BINARY_FILESYSTEM}"
+		exit 1
+		;;
+esac
+
+# Partition sized to leave 64 x 512 byte sectors at the front and back of
+# the disk to allow for embedded bootloaders and GPT partitions.
+case "${LB_BUILD_WITH_CHROOT}" in
+	true)
+		Chroot chroot "parted -s -a none -- ${FREELO} mklabel ${PARTITION_TABLE_TYPE}" || true
+		Chroot chroot "parted -s -a none -- ${FREELO} mkpart primary ${PARTITION_TYPE} 64s -65s" || true
+
+		if [ "${LB_BOOTLOADER}" = "syslinux" ]
+		then
+			dd if=chroot/usr/lib/syslinux/mbr.bin of=${FREELO} bs=440 count=1
+		fi
+		;;
+
+	false)
+		parted -s -a none -- ${FREELO} mklabel ${PARTITION_TABLE_TYPE} || true
+		parted -s -a none -- ${FREELO} mkpart primary ${PARTITION_TYPE} 64s -65s || true
+
+		if [ "${LB_BOOTLOADER}" = "syslinux" ]
+		then
+			dd if=/usr/lib/syslinux/mbr.bin of=${FREELO} bs=440 count=1
+		fi
+		;;
+esac
+
+MAIN_DISK=${FREELO}
+#Lodetach ${FREELO}
+
+FREELO="$(${LB_LOSETUP} -f)"
+Losetup $FREELO chroot/binary.img 1
+
+case "${LB_BINARY_FILESYSTEM}" in
+	ext2|ext3|ext4)
+		MKFS="${LB_BINARY_FILESYSTEM}"
+		MKFS_OPTIONS="-L ${LB_HDD_LABEL} ${ROOT_RESERVED}"
+		;;
+
+	fat16)
+		MKFS="vfat"
+		MKFS_OPTIONS="-F 16 -n ${LB_HDD_LABEL}"
+		;;
+
+	fat32)
+		MKFS="vfat"
+		MKFS_OPTIONS="-F 32 -n ${LB_HDD_LABEL}"
+		;;
+esac
+
+case "${LB_BUILD_WITH_CHROOT}" in
+	true)
+		if ! Chroot chroot "test -s /etc/mtab"
+		then
+			Chroot chroot "ln -sf /proc/mounts /etc/mtab"
+			FAKE_MTAB="true"
+		fi
+		
+		Chroot chroot "mkfs.${MKFS} ${MKFS_OPTIONS} ${FREELO}"
+		;;
+
+	false)
+		mkfs.${MKFS} ${MKFS_OPTIONS} ${FREELO}
+		;;
+esac
+
+case "${LB_BINARY_FILESYSTEM}" in
+	fat*)
+		CP_OPTIONS="-L"
+		;;
+esac
+
+Echo_message "Copying across root filesystem. This may take a while..."
+mkdir -p chroot/binary.tmp
+${LB_ROOT_COMMAND} mount ${FREELO} chroot/binary.tmp
+cp -a -T ${CP_OPTIONS} binary/ chroot/binary.tmp
+
+FIXME()
+{
+if [ "${LB_BOOTLOADER}" = "grub" ]
+then
+
+cat > chroot/grub.sh << EOF
+cd binary.tmp
+grub --batch << EOM
+find /live/vmlinuz
+EOM
+EOF
+
+	rootpartition="$(Chroot chroot 'sh grub.sh' 2>/dev/null | grep -A 1 'find /live/vmlinuz' | grep -v 'find /live/vmlinuz')"
+	hdddev="$(echo $rootpartition | sed -e 's|,[[:digit:]]||')"
+	echo "Root partition is $rootpartition, device is: $hdddev"
+
+	echo "WAITING..." && read WAIT
+
+#cat > chroot/grub.sh << EOF
+#grub --batch << EOM
+#root $rootpartition
+#setup $hdddev
+#EOM
+#EOF
+
+#Chroot chroot "sh grub.sh"
+
+	rm -f chroot/grub.sh
+fi
+}
+
+if [ "${LB_BOOTLOADER}" = "grub2" ]
+then
+	Echo_message "Installing grub2 ..."
+	case "${LB_BUILD_WITH_CHROOT}" in
+		true)
+			# Check grub version
+			if Chroot chroot grub-setup --version | grep -q '1\.98-'
+			then
+				TARGET_OPTIONS=''
+				INSTALL_DEVICE='(hd9,1)'
+			else
+				TARGET_OPTIONS='-O i386-pc'
+				INSTALL_DEVICE='(hd9,msdos1)'
+			fi
+			INSTALL_DRIVE='(hd9)'
+			MODULES="biosdisk ext2 part_msdos search_fs_uuid"
+
+			Echo_message "Obtaining UUID"
+			eval $(blkid -o udev "${FREELO}")
+
+			# Find kernel and initrd
+			kernel=$(ls chroot/binary.tmp/boot/vmlinuz* | head -1|sed 's|chroot/binary.tmp||')
+			initrd=$(ls chroot/binary.tmp/boot/initrd* | head -1|sed 's|chroot/binary.tmp||')
+
+			if [ -z "${kernel}" ]
+			then
+				Echo_error "Missing kernel"
+				exit 1
+			elif [ -z "${initrd}" ]
+			then
+				Echo_error "Missing initrd"
+				exit 1
+			fi
+
+			# Create boot config
+			Echo_message "Creating boot config"
+
+			# Clean up grub v1 stuff
+			mkdir -p chroot/binary.tmp/boot/grub
+			rm -f chroot/binary.tmp/boot/grub/menu.lst chroot/binary.tmp/boot/grub/default binary.tmp/boot/grub/gfxblacklist.txt
+
+cat > chroot/binary.tmp/boot/grub/grub.cfg <<EOF
+# Patented Grub2 GerritUp boot file
+# run update-grub for a real one
+#
+insmod ext2
+search --no-floppy --fs-uuid --set ${ID_FS_UUID}
+linux	${kernel} root=UUID=${ID_FS_UUID} ro quiet nosplash
+initrd  ${initrd}
+boot
+EOF
+
+cat > chroot/binary.tmp/boot/grub/load.cfg <<EOF
+search.fs_uuid ${ID_FS_UUID} root
+set prefix=(\$root)/boot/grub
+EOF
+
+cat > chroot/binary.tmp/boot/grub/device.map <<EOF
+${INSTALL_DRIVE}	${MAIN_DISK}
+${INSTALL_DEVICE}	${FREELO}
+EOF
+
+			#Copy over boot files
+			Echo_message "Copying boot files"
+			grubdir=chroot/binary.tmp/boot/grub
+			localedir=chroot/binary.tmp/usr/share/locale
+			cp -a chroot/binary.tmp/usr/lib/grub/i386-pc/* ${grubdir}
+			mkdir -p ${grubdir}/locale
+			for dir in ${localedir}/* ${localedir}-langpack/*; do
+			  if test -f "$dir/LC_MESSAGES/grub.mo"; then
+			    cp -f "$dir/LC_MESSAGES/grub.mo" "${grubdir}/locale/${dir##*/}.mo"
+			  fi
+			done
+
+			#Create grub environment
+			Echo_message "Checking Grub environment"
+			if ! test -f chroot/binary.tmp/grubenv; then
+			    Chroot chroot grub-editenv binary.tmp/boot/grub/grubenv create
+			fi
+
+			#Create boot sector image
+			Echo_message "Creating boot sector"
+			Chroot chroot grub-mkimage -v ${TARGET_OPTIONS} -p binary.tmp/boot/grub -c binary.tmp/boot/grub/load.cfg --output binary.tmp/boot/grub/core.img ${MODULES}
+
+
+			Echo_message "Installing boot sector"
+			Chroot chroot grub-setup -v -b boot.img -c core.img -d binary.tmp/boot/grub -m binary.tmp/boot/grub/device.map -r "${INSTALL_DEVICE}" "${INSTALL_DRIVE}"
+			rm ${grubdir}/device.map
+			;;
+		*)	echo "Not implemented"
+			exit 1
+			;;
+	esac
+fi
+
+${LB_ROOT_COMMAND} umount chroot/binary.tmp
+rmdir chroot/binary.tmp
+
+if [ "${LB_BOOTLOADER}" = "syslinux" ]
+then
+	case "${LB_BUILD_WITH_CHROOT}" in
+		true)
+			Chroot chroot "syslinux ${FREELO}"
+			;;
+
+		false)
+			syslinux ${FREELO}
+			;;
+	esac
+fi
+
+Lodetach ${FREELO}
+
+echo "!!! The above error/warning messages can be ignored !!!"
+
+#FREELO="$(${LB_LOSETUP} -f)"
+#Losetup "${FREELO}" chroot/binary.img 0
+
+case "${LB_BUILD_WITH_CHROOT}" in
+	true)
+		Chroot chroot "parted -s ${MAIN_DISK} set 1 boot on" || true
+		Chroot chroot "parted -s ${MAIN_DISK} set 1 lba off" || true
+		;;
+
+	false)
+		parted -s "${MAIN_DISK}" set 1 boot on || true
+		parted -s "${MAIN_DISK}" set 1 lba off || true
+		;;
+esac
+
+Lodetach ${MAIN_DISK}
+
+if [ -n "${MAKEDEV}" ]
+then
+	rm -rf chroot/dev
+	mv chroot/dev.tmp chroot/dev
+fi
+
+if [ "${FAKE_MTAB}" = "true" ]
+then
+	Chroot chroot "rm -f /etc/mtab"
+fi
+
+TARGET_NAME="${LB_DISTRIBUTION}-${LB_ARCHITECTURES}-$$"
+mv chroot/binary.img ./${TARGET_NAME}
+
+Echo_message "Compressing image"
+gzip ${GZIP_OPTIONS} ${TARGET_NAME}
+
+# Saving cache
+Save_cache cache/packages_binary
+
+# Removing depends
+Remove_package
+
+# Creating stage file
+Create_stagefile .stage/kvm_hdd

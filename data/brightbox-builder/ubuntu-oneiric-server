@@ -1,7 +1,7 @@
 architectures="x86_64 i686"
 name="Ubuntu Oneiric 11.10 server"
-description="login: ubuntu using stored ssh key"
+description="Standard server with cloud-init"
 compatibility=0
-config=ubuntu-server
-distro=oneiric
+distribution_config=Ubuntu
+release=oneiric
 package_list=brightbox-ubuntu-oneiric-server

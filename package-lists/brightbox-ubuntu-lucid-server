@@ -1,2 +1,3 @@
-#include <ubuntu-cloud-server>
-uec^
+#The build hooks and dependencies for this release are packaged in the
+#release specific 'cloud-build' package
+cloud-build

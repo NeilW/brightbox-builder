@@ -1,7 +1,7 @@
 architectures="x86_64 i686"
-name="Brightbox Loadbalancer from Ubuntu Oneiric 11.10 base"
+name="Ubuntu Oneiric 11.10 LB"
 description="no ssh access available"
 compatibility=0
-config=ubuntu-server
-distro=oneiric
+distribution_config=Ubuntu
+release=oneiric
 package_list=brightbox-ubuntu-oneiric-loadbalancer

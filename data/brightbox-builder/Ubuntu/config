@@ -1,21 +1,24 @@
 #!/bin/sh
-#distro=natty
+#release=natty
 #architecure=i386
 username=ubuntu
 archive_areas="main universe restricted"
 archive="http://archive.ubuntu.com/ubuntu"
 security="http://security.ubuntu.com/ubuntu"
+#description="Standard Ubuntu Server with cloud init"
+#name="Ubuntu Natty 11.04 Server"
 #other_sources="ppa-brightbox-build ppa-brightbox-experimental"
-#package_list="brightbox-ubuntu-${distro}-server"
+#package_list="brightbox-ubuntu-${release}-server"
+#compatibility=0
 lb config noauto \
-	-d ${distro} --parent-distribution ${distro} \
+	-d ${release} --parent-distribution ${release} \
 	-a "${architecture}" \
 	--package-lists "${package_list}" \
 	--security true --source true --source-images none --backports false  \
 	--volatile true --apt-indices none --clean \
-	--binary-images virtual-hdd --binary-filesystem ext4 \
-        --virtual-root-size auto \
-	--chroot-filesystem plain --archive-areas "${archive_areas}" \
+	--binary-images hdd --binary-filesystem ext4 \
+        --hdd-size 20% --hdd-label "ubuntu-rootfs" \
+	--chroot-filesystem none --archive-areas "${archive_areas}" \
 	--parent-archive-areas "${archive_areas}" \
 	--bootstrap-flavour standard \
 	--parent-mirror-bootstrap "${archive}" \
@@ -36,16 +39,16 @@ lb config noauto \
 	--mirror-chroot-security "${archive}" \
 	--mirror-chroot-volatile "${archive}" \
 	--mirror-chroot-backports none \
-	--net-tarball false --username "${username}" --exposed-root true \
+	--net-tarball false --username "${username}" --exposed-root false \
 	--keyring-packages ubuntu-keyring --linux-flavours virtual \
 	--linux-packages '' \
 	--initsystem none --initramfs none --mode ubuntu --tasksel tasksel \
 	--bootloader grub2 --debian-installer-gui false \
         --debian-installer false \
 	--debian-installer-distribution '' \
-	--iso-application none --iso-preparer "Brightbox Cloud Builder" \
-	--iso-publisher "Brightbox Cloud Builder" \
-	--iso-volume 'Cloud Build $(date +%Y%m%d-%H:%M)' --memtest none \
+	--iso-application none --iso-preparer "${compatibility}" \
+	--iso-publisher "${description}" \
+	--iso-volume "${name}" --memtest none \
 	--net-root-filesystem none --net-root-path '/srv/ubuntu-live' \
 	--apt-options "--yes --force-yes -o Acquire::http::No-Cache=True -o Acquire::Retries=3 -o APT::Get::AllowUnauthenticated=true" \
 	--root-command sudo \

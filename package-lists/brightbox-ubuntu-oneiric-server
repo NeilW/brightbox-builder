@@ -1,2 +1,1 @@
-#include <ubuntu-cloud-server>
-cloud-image^
+brightbox-ubuntu-lucid-server

@@ -10,7 +10,7 @@
 #
 
 LB_BASE="${LB_BASE:-/usr/share/live/build}"
-bb_data=${LB_BASE}/data/brightbox-builder
+BB_DATA=${LB_BASE}/data/brightbox-builder
 
 set -e
 
@@ -22,7 +22,7 @@ Usage
 
 Images available:
 EOF
-for word in ${bb_data}/*
+for word in ${BB_DATA}/*
 do
 	[ -f "${word}" ] && echo "	$(basename ${word})" >&2
 done
@@ -45,10 +45,13 @@ esac
 cat <<EOF
 #!/bin/sh
 
-export distro="${distro}"
+export release="${release}"
 export other_sources="ppa-brightbox-build${experimental:+ ppa-brightbox-experimental}"
 export architecture="${debarch}"
 export package_list="${package_list}"
+export name="${name}"
+export description="${description}"
+export compatibility="${compatibility}"
 EOF
 }
 
@@ -63,40 +66,66 @@ valid_arch() {
   echo "Invalid architecture '${1}' for $(uname -m) machine" >&2
   return 1
 }
+
+load_template() {
+	bb_release=$1
+	template="${BB_DATA}/${bb_release}"
+	[ -f "${template}" ] || fail "Can't locate template file for ${bb_release}"
+	. ${template}
+}
 		
 generate_build_dir() {
-	bb_distro=$1
-	template="${bb_data}/${bb_distro}"
-	[ -f "${template}" ] || fail "Can't locate template file for ${bb_distro}"
-	if [ -d "${bb_distro}" ]
+	bb_release=$1
+	if [ -d "${bb_release}" ]
         then
 		action="Refreshing"
 	else
 		action="Creating"
 	fi
-	. ${template}
+	load_template ${bb_release}
 	print_build_report
 	for arch in ${architectures}
 	do
 	  valid_arch ${arch} || continue
 	  echo "${action} ${arch} configuration"
-	  arch_autodir="${bb_distro}/${arch}/auto"
+	  arch_autodir="${bb_release}/${arch}/auto"
 	  [ -d "${arch_autodir}" ] || mkdir -p "${arch_autodir}" || fail "Can't create config directory at ${arch_autodir}"
-	  cp -a ${bb_data}/${config}/clean ${bb_data}/${config}/config ${arch_autodir}
-	  generate_create_header ${arch} | cat - "${bb_data}/${config}/create" >"${bb_distro}/${arch}/create"
-	  chmod a+x "${bb_distro}/${arch}/create"
+	  cp -a ${BB_DATA}/${distribution_config}/clean ${BB_DATA}/${distribution_config}/config ${arch_autodir}
+	  generate_create_header ${arch} | cat - "${BB_DATA}/${distribution_config}/build" >"${arch_autodir}/build"
+	  chmod a+x "${arch_autodir}/build"
+	done
+}
+
+build_release() {
+	bb_release=$1
+	load_template ${bb_release}
+	for arch in ${architectures}
+	do
+		echo "Building ${name} (${arch})"
+		(cd ${bb_release}/${arch}; exec sudo lb build) || fail "Failed to build ${name} (${arch}) - check logs"
+	done
+}
+
+upload_release() {
+	bb_release=$1
+	load_template ${bb_release}
+	for arch in ${architectures}
+	do
+		(cd ${bb_release}/${arch}; exec lb upload)
 	done
 }
 
 print_build_report() {
-	echo "Generating ${experimental:+experimental }build configuration for:"
-	echo 
-	echo "name:          ${name}"
-	echo "description:   ${description}"
-	echo "architectures: ${architectures}"
-	echo "distribution:  ${distro}"
-	echo "config:        ${config}"
-	[ "${compatibility:-0}" -eq 1 ] && echo "compatibility: on"
+	cat <<EOF
+Generating ${experimental:+experimental }build configuration for:
+
+name:          		${name}
+description:   		${description}
+architectures: 		${architectures}
+distribution config:  	${distribution_config}
+release:        	${release}
+EOF
+	[ "${compatibility:-0}" -eq 1 ] && echo "compatibility:		on"
 	echo
 }
 
@@ -120,7 +149,17 @@ do
 done
 
 
-for bb_distro
+for bb_release
 do
-	generate_build_dir ${bb_distro}
+	generate_build_dir ${bb_release}
+done
+
+for bb_release
+do
+	build_release ${bb_release}
+done
+
+for bb_release
+do
+	upload_release ${bb_release}
 done

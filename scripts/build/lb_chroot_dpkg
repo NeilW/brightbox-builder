@@ -54,10 +54,14 @@ EOF
 		chmod 755 chroot/sbin/start-stop-daemon
 
 		# Disable dpkg syncing
+		# if the chroot dpkg supports it
+		if Chroot chroot dpkg --force-help | grep -q unsafe io
+		then
 
 cat > chroot/etc/dpkg/dpkg.cfg.d/live-build << EOF
 force-unsafe-io
 EOF
+		fi
 
 		# Manual hacks for special packages
 

@@ -35,7 +35,7 @@ Create_stagefile ()
 	DIRECTORY="$(dirname ${1})"
 
 	# Creating stage directory
-	mkdir -p "${DIRECTORY}"
+	mkdir -p "${DIRECTORY}" -m 777
 
 	# Creating stage file
 	touch "${FILE}"

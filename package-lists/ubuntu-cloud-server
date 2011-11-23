@@ -1,7 +1,9 @@
+#include <minimal>
+
 standard^
-linux-virtual
+server^
+ubuntu-minimal
 acpid
-apt-transport-https
 cloud-init
 cloud-initramfs-growroot
 cloud-initramfs-rescuevol

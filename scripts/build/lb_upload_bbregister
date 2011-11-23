@@ -1,0 +1,68 @@
+#!/bin/sh
+
+## live-build(7) - System Build Scripts
+## Copyright (C) 2011 Brightbox Systems
+## Author: Neil Wilson
+##
+## live-build comes with ABSOLUTELY NO WARRANTY; for details see COPYING.
+## This is free software, and you are welcome to redistribute it
+## under certain conditions; see COPYING for details.
+
+
+set -e
+
+# Including common functions
+. "${LB_BASE:-/usr/share/live/build}"/scripts/build.sh
+
+# Setting static variables
+DESCRIPTION="$(Echo 'Upload binary image to FTP site')"
+HELP=""
+USAGE="${PROGRAM} [--force]"
+
+Arguments "${@}"
+
+# Reading configuration files
+Read_conffiles config/all config/common config/bootstrap config/chroot config/binary config/source
+Set_defaults
+
+Echo_message "Begin uploading image to FTP"
+
+# Requiring stage file
+Require_stagefile .stage/bb_upload
+
+# Checking stage file
+Check_stagefile .stage/bb_register
+
+# Checking lock file
+Check_lockfile .lock
+
+# Creating lock file
+Create_lockfile .lock
+
+fail() {
+  Echo_error "$1"
+  exit ${2:-1}
+}
+
+if ! which brightbox-images > /dev/null 2>&1
+then
+	fail "Can't find brightbox tools. Install brightbox-cli package and configure an api client"
+fi
+
+case $LB_ARCHITECTURES in
+	i386)
+		target_arch="i686"
+		;;
+	amd64)
+		target_arch="x86_64"
+		;;
+esac
+[ "${LB_ISO_PREPARER:-0}" = 1 ] && compat="--mode=compatibility" 
+
+TARGET_NAME=$(echo ${LB_DISTRIBUTION}*)
+Echo_message_running "Registering ${LB_ISO_VOLUME} (${LB_ARCHITECTURES}) from ${TARGET_NAME}"
+brightbox-images register --arch="${target_arch}" ${compat} --name="${LB_ISO_VOLUME}" --username="${LB_USERNAME}" --description="${LB_ISO_PUBLISHER}" --source="${TARGET_NAME}"
+Echo_status
+
+# Creating stage file
+Create_stagefile .stage/bb_register

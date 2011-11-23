@@ -1,7 +1,7 @@
 architectures="x86_64 i686"
 name="Ubuntu Precise 12.04 LTS server"
-description="login: ubuntu using stored ssh key"
+description="Standard server with cloud-init"
 compatibility=0
-config=ubuntu-server
-distro=precise
-package_list=brightbox-ubuntu-${distro}-server
+distribution_config=Ubuntu
+release=precise
+package_list=brightbox-ubuntu-${release}-server

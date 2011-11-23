@@ -23,4 +23,3 @@ Suggests:
 Description: Virtual Machine Builder Scripts
  brightbox-builder contains the scripts that build Brightbox virtual
  machines based on version descriptions.
-
