@@ -101,6 +101,7 @@ build_release() {
 	load_template ${bb_release}
 	for arch in ${architectures}
 	do
+		valid_arch ${arch} || continue
 		echo "Building ${name} (${arch})"
 		(cd ${bb_release}/${arch}; exec sudo lb build) || fail "Failed to build ${name} (${arch}) - check logs"
 	done
@@ -111,6 +112,7 @@ upload_release() {
 	load_template ${bb_release}
 	for arch in ${architectures}
 	do
+		valid_arch ${arch} || continue
 		(cd ${bb_release}/${arch}; exec lb upload)
 	done
 }
