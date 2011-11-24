@@ -1,3 +1,9 @@
+brightbox-builder (3.0.1-0ubuntu1) oneiric; urgency=low
+
+  * Make sure build archives are not in final image
+
+ -- Neil Wilson <neil@aldur.co.uk>  Thu, 24 Nov 2011 12:49:19 +0000
+
 brightbox-builder (3.0-0ubuntu1) oneiric; urgency=low
 
   * Derive brightbox-builder from live-build
