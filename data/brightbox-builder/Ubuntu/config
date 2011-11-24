@@ -54,3 +54,12 @@ lb config noauto \
 	--root-command sudo \
 	--gzip-options "--fast --rsyncable" \
         --archives "${other_sources}"
+#Exclude archive directories from binary
+mkdir -p config/binary_rootfs
+> config/binary_rootfs/excludes
+for word in ${other_sources}
+do
+  cat >> config/binary_rootfs/excludes <<EOF
+/etc/apt/sources.list.d/${word}.list
+/etc/apt/sources.list.d/${word}.key
+EOF
