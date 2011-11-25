@@ -63,3 +63,4 @@ do
 /etc/apt/sources.list.d/${word}.list
 /etc/apt/sources.list.d/${word}.key
 EOF
+done
