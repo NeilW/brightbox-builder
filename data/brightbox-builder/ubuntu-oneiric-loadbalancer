@@ -1,6 +1,6 @@
-architectures="x86_64 i686"
+architectures="x86_64"
 name="Ubuntu Oneiric 11.10 LB"
-description="no ssh access available"
+description="ssh access via console activation"
 compatibility=0
 distribution_config=Ubuntu
 release=oneiric
