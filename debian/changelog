@@ -1,8 +1,15 @@
+brightbox-builder (3.0.2-0ubuntu1) oneiric; urgency=low
+
+  * New upstream release
+  * Load balancer should only build x86_64 version
+
+ -- Neil Wilson <neil@aldur.co.uk>  Mon, 28 Nov 2011 12:04:49 +0000
+
 brightbox-builder (3.0.1-0ubuntu2) oneiric; urgency=low
 
   * Fix config file 
 
- -- Neil Wilson <neil@aldur.co.uk>  Fri, 25 Nov 2011 20:43:02 +0000
+ -- Neil Wilson <neil@aldur.co.uk>  Mon, 28 Nov 2011 12:04:47 +0000
 
 brightbox-builder (3.0.1-0ubuntu1) oneiric; urgency=low
 
