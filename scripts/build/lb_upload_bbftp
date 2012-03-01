@@ -53,14 +53,20 @@ fi
 
 if ! brightbox-accounts -s list > /dev/null 2>&1
 then
+  if brightbox-accounts -s list 2>&1 | grep -q "ERROR: Unable to verify certificate" 
+  then
+        Echo_warning "Current config unable to verify certificate - disabling"
+        BBFLAGS=-k
+  else
 	Echo_error "No accounts found. Check your api configuration with 'brightbox-config'" 
 	exit 1
+  fi
 fi
 
-BB_ACCOUNT=$(brightbox-accounts -s list 2>/dev/null | awk 'NR>1{exit};{print $1}')
+BB_ACCOUNT=$(brightbox-accounts ${BBFLAGS} -s list 2>/dev/null | awk 'NR>1{exit};{print $1}')
 Echo_message "Uploading image into account ${BB_ACCOUNT}"
 
-BB_FTP_DETAILS=$(brightbox-accounts -s reset_ftp_password ${BB_ACCOUNT} 2>/dev/null)
+BB_FTP_DETAILS=$(brightbox-accounts ${BBFLAGS} -s reset_ftp_password ${BB_ACCOUNT} 2>/dev/null)
 BB_FTP_URL=$(echo "${BB_FTP_DETAILS}" | awk '{ ftp_hash[$1] = $2 }; END { printf "ftp://%s/incoming",ftp_hash["library_ftp_host"] }')
 BB_FTP_LOGON=$(echo "${BB_FTP_DETAILS}" | awk '{ ftp_hash[$1] = $2 }; END { printf "%s:%s",ftp_hash["library_ftp_user"],ftp_hash["library_ftp_password"] }')
 
