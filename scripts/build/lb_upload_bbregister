@@ -49,6 +49,13 @@ then
 	fail "Can't find brightbox tools. Install brightbox-cli package and configure an api client"
 fi
 
+if brightbox-accounts -s list 2>&1 | grep -q "ERROR: Unable to verify certificate" 
+then
+      Echo_warning "Current config unable to verify certificate - disabling"
+      BBFLAGS=-k
+fi
+
+
 case $LB_ARCHITECTURES in
 	i386)
 		target_arch="i686"
@@ -61,7 +68,7 @@ esac
 
 TARGET_NAME=$(echo ${LB_DISTRIBUTION}*)
 Echo_message_running "Registering ${LB_ISO_VOLUME} (${LB_ARCHITECTURES}) from ${TARGET_NAME}"
-brightbox-images register --arch="${target_arch}" ${compat} --name="${LB_ISO_VOLUME}" --username="${LB_USERNAME}" --description="${LB_ISO_PUBLISHER}" --source="${TARGET_NAME}"
+brightbox-images ${BBFLAGS} register --arch="${target_arch}" ${compat} --name="${LB_ISO_VOLUME}" --username="${LB_USERNAME}" --description="${LB_ISO_PUBLISHER}" --source="${TARGET_NAME}"
 Echo_status
 
 # Creating stage file
