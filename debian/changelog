@@ -1,3 +1,9 @@
+brightbox-builder (3.0.2-0ubuntu4) oneiric; urgency=low
+
+  * Add precise loadbalancer package
+
+ -- Neil Wilson <neil@aldur.co.uk>  Tue, 06 Mar 2012 10:46:52 +0000
+
 brightbox-builder (3.0.2-0ubuntu3) oneiric; urgency=low
 
   * Make upload switch off verify certificate if necessary
