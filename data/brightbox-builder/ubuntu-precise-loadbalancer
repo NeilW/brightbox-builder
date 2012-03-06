@@ -1,0 +1,7 @@
+architectures="x86_64"
+name="Ubuntu Precise 12.04 LoadBalancer"
+description="ssh access via console activation"
+compatibility=0
+distribution_config=Ubuntu
+release=precise
+package_list=brightbox-ubuntu-${release}-loadbalancer
