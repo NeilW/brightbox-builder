@@ -204,7 +204,7 @@ Losetup $FREELO chroot/binary.img 1
 case "${LB_BINARY_FILESYSTEM}" in
 	ext2|ext3|ext4)
 		MKFS="${LB_BINARY_FILESYSTEM}"
-		MKFS_OPTIONS="-L ${LB_HDD_LABEL} ${ROOT_RESERVED}"
+		MKFS_OPTIONS="-J size=128 -E resize=4294967295 -L ${LB_HDD_LABEL} ${ROOT_RESERVED}"
 		;;
 
 	fat16)

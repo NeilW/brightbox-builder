@@ -1,3 +1,9 @@
+brightbox-builder (3.0.2-0ubuntu5) oneiric; urgency=low
+
+  * Add extended journal and expansion blocks to ext4 image
+
+ -- Neil Wilson <neil@aldur.co.uk>  Fri, 16 Mar 2012 15:34:27 +0000
+
 brightbox-builder (3.0.2-0ubuntu4) oneiric; urgency=low
 
   * Add precise loadbalancer package
