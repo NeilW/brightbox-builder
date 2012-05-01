@@ -420,10 +420,9 @@ then
 fi
 
 TARGET_NAME="${LB_DISTRIBUTION}-${LB_ARCHITECTURES}-$$"
-mv chroot/binary.img ./${TARGET_NAME}
 
-Echo_message "Compressing image"
-gzip ${GZIP_OPTIONS} ${TARGET_NAME}
+Echo_message "Converting image to Qcow2 format"
+qemu-img convert -p -O qcow2 -c chroot/binary.img ${TARGET_NAME} && rm -f chroot/binary.img
 
 # Saving cache
 Save_cache cache/packages_binary

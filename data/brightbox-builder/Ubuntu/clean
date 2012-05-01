@@ -2,5 +2,4 @@
 
 lb clean noauto "${@}"
 rm -rf config
-rm -f build.log
-rm -f *.gz
+rm -f build.log *i386* *amd64* *.gz
