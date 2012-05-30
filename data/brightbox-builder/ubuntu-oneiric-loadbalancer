@@ -1,7 +1,0 @@
-architectures="x86_64"
-name="Ubuntu Oneiric 11.10 LB"
-description="ssh access via console activation"
-compatibility=0
-distribution_config=Ubuntu
-release=oneiric
-package_list=brightbox-ubuntu-oneiric-loadbalancer

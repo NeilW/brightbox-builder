@@ -1,7 +1,7 @@
 architectures="x86_64 i686"
-name="Ubuntu Maverick 10.10 server"
+name="Ubuntu Quantal 12.10 server"
 description="Standard server with cloud-init"
 compatibility=0
 distribution_config=Ubuntu
-release=maverick
-package_list=brightbox-ubuntu-maverick-server
+release=quantal
+package_list=brightbox-ubuntu-${release}-server
