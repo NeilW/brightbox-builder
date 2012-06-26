@@ -18,7 +18,7 @@ usage() {
 cat >&2 <<EOF
 Brightbox Image Builder
 Usage
-	$(basename $0) [--experimental] [distribution-handle]
+	$(basename $0) [--experimental] [--upload-only] [distribution-handle]
 
 Images available:
 EOF
@@ -113,7 +113,7 @@ upload_release() {
 	for arch in ${architectures}
 	do
 		valid_arch ${arch} || continue
-		(cd ${bb_release}/${arch}; exec lb upload)
+		(cd ${bb_release}/${arch}; exec lb upload ${upload:+--force})
 	done
 }
 
@@ -141,6 +141,10 @@ do
 			experimental=1
 			shift
 			;;
+		--upload-only)
+			upload=1
+			shift
+			;;
 		-u|--usage)
 			usage
 			exit 0
@@ -151,15 +155,18 @@ do
 done
 
 
-for bb_release
-do
-	generate_build_dir ${bb_release}
-done
+if [ "${upload}" != "1" ]
+then
+    for bb_release
+    do
+	    generate_build_dir ${bb_release}
+    done
 
-for bb_release
-do
-	build_release ${bb_release}
-done
+    for bb_release
+    do
+	    build_release ${bb_release}
+    done
+fi
 
 for bb_release
 do
