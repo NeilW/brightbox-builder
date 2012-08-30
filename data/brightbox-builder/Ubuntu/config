@@ -64,3 +64,18 @@ do
 /etc/apt/sources.list.d/${word}.key
 EOF
 done
+#Reconfigure console
+mkdir -p config/hooks
+cat >config/hooks/reconfigure-console.chroot <<EOF
+#!/bin/sh
+
+set -e
+
+export OVERRIDE_ALLOW_PRESEEDING=1
+
+if apt-cache show keyboard-configuration >/dev/null 2>&1
+then
+    dpkg-reconfigure --frontend=noninteractive -u keyboard-configuration
+fi
+dpkg-reconfigure --frontend=noninteractive -u console-setup
+EOF
