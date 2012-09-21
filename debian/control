@@ -10,7 +10,7 @@ Vcs-Git: git://github.com/NeilW/brightbox-builder.git
 
 Package: brightbox-builder
 Architecture: all
-Depends: ${misc:Depends}, debootstrap 
+Depends: ${misc:Depends}, debootstrap, kpartx
 Conflicts: live-build
 Replaces: live-build
 Recommends:

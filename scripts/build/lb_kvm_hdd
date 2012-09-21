@@ -49,6 +49,149 @@ Check_package chroot/sbin/mkdosfs dosfstools
 Check_package chroot/usr/share/doc/mtools mtools
 Check_package chroot/sbin/parted parted
 
+Set_partition_variables()
+{
+  ROOT_PARTITION_DEVICE="/dev/mapper/$3"
+  MAIN_DISK="$8"
+}
+
+Setup_partitions()
+{
+  Set_partition_variables `${LB_ROOT_COMMAND} kpartx -av "$1"`
+}
+
+Remove_partitions()
+{
+  ${LB_ROOT_COMMAND} kpartx -dv "$1"
+}
+
+Add_boot_config()
+{
+    local ROOT_DEVICE TARGET_PARTITION kernel initrd
+    ROOT_DEVICE="$1"
+    TARGET_PARTITION="$2"
+    Echo_message "Obtaining UUID"
+    eval $(${LB_ROOT_COMMAND} blkid -o udev "${ROOT_DEVICE}")
+
+    # Find kernel and initrd
+    kernel=$(ls ${TARGET_PARTITION}/boot/vmlinuz* | head -1|sed "s|${TARGET_PARTITION}||")
+    initrd=$(ls ${TARGET_PARTITION}/boot/initrd* | head -1|sed "s|${TARGET_PARTITION}||")
+
+    if [ -z "${kernel}" ]
+    then
+	    Echo_error "Missing kernel"
+	    exit 1
+    elif [ -z "${initrd}" ]
+    then
+	    Echo_error "Missing initrd"
+	    exit 1
+    elif [ -z "${ID_FS_UUID}" ]
+    then
+    	    Echo_error "Missing UUID"
+	    exit 1
+    fi
+
+    # Create boot config
+    Echo_message "Creating boot config for UUID ${ID_FS_UUID}"
+
+    # Clean up grub v1 stuff
+    mkdir -p chroot/binary.tmp/boot/grub
+    rm -f chroot/binary.tmp/boot/grub/menu.lst chroot/binary.tmp/boot/grub/default binary.tmp/boot/grub/gfxblacklist.txt
+
+    cat > chroot/binary.tmp/boot/grub/grub.cfg <<EOF
+# Patented Grub2 GerritUp boot file
+# run update-grub for a real one
+#
+insmod ext2
+search --no-floppy --fs-uuid --set ${ID_FS_UUID}
+linux	${kernel} root=UUID=${ID_FS_UUID} ro quiet nosplash
+initrd  ${initrd}
+boot
+EOF
+
+    cat > chroot/binary.tmp/boot/grub/load.cfg <<EOF
+search.fs_uuid ${ID_FS_UUID} root
+set prefix=(\$root)/boot/grub
+EOF
+}
+
+# Run grub commands in the chroot and write to the disk image.
+Chroot_install_grub2()
+{
+    local TARGET_OPTIONS INSTALL_DEVICE INSTALL_DRIVE MODULES
+    TARGET_OPTIONS="${2}"
+    INSTALL_DEVICE="${1}"
+    INSTALL_DRIVE='(hd9)'
+    MODULES="biosdisk ext2 part_msdos search_fs_uuid"
+
+
+    cat > ${TARGET_PARTITION}/boot/grub/device.map <<EOF
+${INSTALL_DRIVE}	${MAIN_DISK}
+${INSTALL_DEVICE}	${FREELO}
+EOF
+
+    #Copy over boot files
+    Echo_message "Copying boot files"
+    grubdir=${TARGET_PARTITION}/boot/grub
+    localedir=${TARGET_PARTITION}/usr/share/locale
+    cp -a ${TARGET_PARTITION}/usr/lib/grub/i386-pc/* ${grubdir}
+    mkdir -p ${grubdir}/locale
+    for dir in ${localedir}/* ${localedir}-langpack/*; do
+      if test -f "$dir/LC_MESSAGES/grub.mo"; then
+	cp -f "$dir/LC_MESSAGES/grub.mo" "${grubdir}/locale/${dir##*/}.mo"
+      fi
+    done
+
+    #Create grub environment
+    Echo_message "Checking Grub environment"
+    if ! test -f ${TARGET_PARTITION}/grubenv; then
+	Chroot chroot grub-editenv binary.tmp/boot/grub/grubenv create
+    fi
+
+    #Create boot sector image
+    Echo_message "Creating boot sector"
+    Chroot chroot grub-mkimage -v ${TARGET_OPTIONS} -p binary.tmp/boot/grub -c binary.tmp/boot/grub/load.cfg --output binary.tmp/boot/grub/core.img ${MODULES}
+
+
+    Echo_message "Installing boot sector"
+    Chroot chroot ${grub_setup} -v -b boot.img -c core.img -d binary.tmp/boot/grub -m binary.tmp/boot/grub/device.map -r "${INSTALL_DEVICE}" "${INSTALL_DRIVE}"
+    rm ${grubdir}/device.map
+}
+
+#Run grub commands directly in the disk image
+Direct_install_grub2() {
+    local MAIN_DISK TARGET_PARTITION
+    MAIN_DISK="${1}"
+    TARGET_PARTITION="${2}"
+    Echo_message "Direct installing grub2..."
+    if [ ! -e "${TARGET_PARTITION}/usr/sbin/grub-install" ]
+    then
+        Echo_error "Missing grub2 files in binary image - aborting"
+	exit 1
+    fi
+
+    Echo_message "Bind mounting system devices"
+    for word in dev proc sys 
+    do
+        ${LB_ROOT_COMMAND} mount --bind /${word} ${TARGET_PARTITION}/${word}
+    done
+
+    if [ -b "${TARGET_PARTITION}/${MAIN_DISK}" ]
+    then
+	Echo_message "Running grub-install"
+	Chroot "${TARGET_PARTITION}" grub-install --debug --recheck "${MAIN_DISK}"
+    else
+        Echo_error "Target main disk not a block device - skipping"
+    fi
+
+    Echo_message "unmounting system devices"
+    for word in sys proc dev
+    do
+        ${LB_ROOT_COMMAND} umount ${TARGET_PARTITION}/${word}
+    done
+
+}
+
 Scale_number()
 {
 	SCALE_PERCENTAGE=$(echo "$2" | sed 's/%//')
@@ -77,7 +220,7 @@ case "${LB_BOOTLOADER}" in
 		Check_package chroot/usr/bin/syslinux syslinux
 		;;
 	grub2)
-		Check_package chroot/usr/sbin/grub-setup grub-pc
+		Check_package chroot/usr/sbin/grub-install grub-pc
 		;;
 esac
 
@@ -136,13 +279,7 @@ REQUIRED_HDD_SIZE=$(expr \( ${REQUIRED_HDD_SIZE} / 256 + 1 \) \* 262144 + 64)
 Echo_message "Image size is ${REQUIRED_HDD_SIZE}K"
 dd if=/dev/zero of=chroot/binary.img bs=1k count=0 seek=${REQUIRED_HDD_SIZE}
 FREELO="$(${LB_LOSETUP} -f)"
-if [ ! -b chroot/${FREELO} ]
-then
-	MAKEDEV="true"
-
-	mv chroot/dev chroot/dev.tmp
-	find /dev | cpio -dmpu chroot
-fi
+${LB_ROOT_COMMAND} mount --bind /dev chroot/dev
 
 echo "!!! The following error/warning messages can be ignored !!!"
 Losetup $FREELO chroot/binary.img 0
@@ -195,11 +332,15 @@ case "${LB_BUILD_WITH_CHROOT}" in
 		;;
 esac
 
-MAIN_DISK=${FREELO}
-#Lodetach ${FREELO}
+Lodetach "${FREELO}"
 
-FREELO="$(${LB_LOSETUP} -f)"
-Losetup $FREELO chroot/binary.img 1
+#ROOT_PARTITION_DEVICE="$(${LB_LOSETUP} -f)"
+#Losetup $ROOT_PARTITION_DEVICE chroot/binary.img 1
+
+Setup_partitions chroot/binary.img
+
+Echo_message "Main disk on device ${MAIN_DISK}"
+Echo_message "Root partition on device ${ROOT_PARTITION_DEVICE}"
 
 case "${LB_BINARY_FILESYSTEM}" in
 	ext2|ext3|ext4)
@@ -226,11 +367,11 @@ case "${LB_BUILD_WITH_CHROOT}" in
 			FAKE_MTAB="true"
 		fi
 		
-		Chroot chroot "mkfs.${MKFS} ${MKFS_OPTIONS} ${FREELO}"
+		Chroot chroot "mkfs.${MKFS} ${MKFS_OPTIONS} ${ROOT_PARTITION_DEVICE}"
 		;;
 
 	false)
-		mkfs.${MKFS} ${MKFS_OPTIONS} ${FREELO}
+		mkfs.${MKFS} ${MKFS_OPTIONS} ${ROOT_PARTITION_DEVICE}
 		;;
 esac
 
@@ -241,129 +382,35 @@ case "${LB_BINARY_FILESYSTEM}" in
 esac
 
 Echo_message "Copying across root filesystem. This may take a while..."
-mkdir -p chroot/binary.tmp
-${LB_ROOT_COMMAND} mount ${FREELO} chroot/binary.tmp
-cp -a -T ${CP_OPTIONS} binary/ chroot/binary.tmp
+TARGET_PARTITION=chroot/binary.tmp
+mkdir -p ${TARGET_PARTITION}
+${LB_ROOT_COMMAND} mount ${ROOT_PARTITION_DEVICE} ${TARGET_PARTITION}
+cp -a -T ${CP_OPTIONS} binary/ ${TARGET_PARTITION}
 
-FIXME()
-{
-if [ "${LB_BOOTLOADER}" = "grub" ]
-then
-
-cat > chroot/grub.sh << EOF
-cd binary.tmp
-grub --batch << EOM
-find /live/vmlinuz
-EOM
-EOF
-
-	rootpartition="$(Chroot chroot 'sh grub.sh' 2>/dev/null | grep -A 1 'find /live/vmlinuz' | grep -v 'find /live/vmlinuz')"
-	hdddev="$(echo $rootpartition | sed -e 's|,[[:digit:]]||')"
-	echo "Root partition is $rootpartition, device is: $hdddev"
-
-	echo "WAITING..." && read WAIT
-
-#cat > chroot/grub.sh << EOF
-#grub --batch << EOM
-#root $rootpartition
-#setup $hdddev
-#EOM
-#EOF
-
-#Chroot chroot "sh grub.sh"
-
-	rm -f chroot/grub.sh
-fi
-}
+# Try and make the disk bootable
 
 if [ "${LB_BOOTLOADER}" = "grub2" ]
 then
 	Echo_message "Installing grub2 ..."
 	case "${LB_BUILD_WITH_CHROOT}" in
 		true)
+			Add_boot_config "${ROOT_PARTITION_DEVICE}" "${TARGET_PARTITION}"
+
 			# Check grub version
-			if Chroot chroot grub-setup --version | grep -q '1\.98-'
-			then
-				TARGET_OPTIONS=''
-				INSTALL_DEVICE='(hd9,1)'
-			else
-				TARGET_OPTIONS='-O i386-pc'
-				INSTALL_DEVICE='(hd9,msdos1)'
-			fi
-			INSTALL_DRIVE='(hd9)'
-			MODULES="biosdisk ext2 part_msdos search_fs_uuid"
-
-			Echo_message "Obtaining UUID"
-			eval $(blkid -o udev "${FREELO}")
-
-			# Find kernel and initrd
-			kernel=$(ls chroot/binary.tmp/boot/vmlinuz* | head -1|sed 's|chroot/binary.tmp||')
-			initrd=$(ls chroot/binary.tmp/boot/initrd* | head -1|sed 's|chroot/binary.tmp||')
-
-			if [ -z "${kernel}" ]
-			then
-				Echo_error "Missing kernel"
-				exit 1
-			elif [ -z "${initrd}" ]
-			then
-				Echo_error "Missing initrd"
-				exit 1
-			fi
-
-			# Create boot config
-			Echo_message "Creating boot config"
-
-			# Clean up grub v1 stuff
-			mkdir -p chroot/binary.tmp/boot/grub
-			rm -f chroot/binary.tmp/boot/grub/menu.lst chroot/binary.tmp/boot/grub/default binary.tmp/boot/grub/gfxblacklist.txt
-
-cat > chroot/binary.tmp/boot/grub/grub.cfg <<EOF
-# Patented Grub2 GerritUp boot file
-# run update-grub for a real one
-#
-insmod ext2
-search --no-floppy --fs-uuid --set ${ID_FS_UUID}
-linux	${kernel} root=UUID=${ID_FS_UUID} ro quiet nosplash
-initrd  ${initrd}
-boot
-EOF
-
-cat > chroot/binary.tmp/boot/grub/load.cfg <<EOF
-search.fs_uuid ${ID_FS_UUID} root
-set prefix=(\$root)/boot/grub
-EOF
-
-cat > chroot/binary.tmp/boot/grub/device.map <<EOF
-${INSTALL_DRIVE}	${MAIN_DISK}
-${INSTALL_DEVICE}	${FREELO}
-EOF
-
-			#Copy over boot files
-			Echo_message "Copying boot files"
-			grubdir=chroot/binary.tmp/boot/grub
-			localedir=chroot/binary.tmp/usr/share/locale
-			cp -a chroot/binary.tmp/usr/lib/grub/i386-pc/* ${grubdir}
-			mkdir -p ${grubdir}/locale
-			for dir in ${localedir}/* ${localedir}-langpack/*; do
-			  if test -f "$dir/LC_MESSAGES/grub.mo"; then
-			    cp -f "$dir/LC_MESSAGES/grub.mo" "${grubdir}/locale/${dir##*/}.mo"
-			  fi
-			done
-
-			#Create grub environment
-			Echo_message "Checking Grub environment"
-			if ! test -f chroot/binary.tmp/grubenv; then
-			    Chroot chroot grub-editenv binary.tmp/boot/grub/grubenv create
-			fi
-
-			#Create boot sector image
-			Echo_message "Creating boot sector"
-			Chroot chroot grub-mkimage -v ${TARGET_OPTIONS} -p binary.tmp/boot/grub -c binary.tmp/boot/grub/load.cfg --output binary.tmp/boot/grub/core.img ${MODULES}
-
-
-			Echo_message "Installing boot sector"
-			Chroot chroot grub-setup -v -b boot.img -c core.img -d binary.tmp/boot/grub -m binary.tmp/boot/grub/device.map -r "${INSTALL_DEVICE}" "${INSTALL_DRIVE}"
-			rm ${grubdir}/device.map
+			grub_version=`Chroot chroot grub-install --version`
+			grub_setup=grub-setup
+			# Pick installation method based on version
+			case "${grub_version}" in
+			    *1.98*)
+				Chroot_install_grub2 '(hd9,1)'
+				;;
+			    *1.99*)
+				Chroot_install_grub2 '(hd9,msdos1)' '-O i386-pc'
+				;;
+			    *2.00*)
+			        Direct_install_grub2 "${MAIN_DISK}" "${TARGET_PARTITION}"
+				;;
+			esac
 			;;
 		*)	echo "Not implemented"
 			exit 1
@@ -371,28 +418,28 @@ EOF
 	esac
 fi
 
-${LB_ROOT_COMMAND} umount chroot/binary.tmp
-rmdir chroot/binary.tmp
+${LB_ROOT_COMMAND} umount ${TARGET_PARTITION}
+rmdir ${TARGET_PARTITION}
 
 if [ "${LB_BOOTLOADER}" = "syslinux" ]
 then
 	case "${LB_BUILD_WITH_CHROOT}" in
 		true)
-			Chroot chroot "syslinux ${FREELO}"
+			Chroot chroot "syslinux ${ROOT_PARTITION_DEVICE}"
 			;;
 
 		false)
-			syslinux ${FREELO}
+			syslinux ${ROOT_PARTITION_DEVICE}
 			;;
 	esac
 fi
 
-Lodetach ${FREELO}
+#Lodetach ${ROOT_PARTITION_DEVICE}
 
 echo "!!! The above error/warning messages can be ignored !!!"
 
-#FREELO="$(${LB_LOSETUP} -f)"
-#Losetup "${FREELO}" chroot/binary.img 0
+#ROOT_PARTITION_DEVICE="$(${LB_LOSETUP} -f)"
+#Losetup "${ROOT_PARTITION_DEVICE}" chroot/binary.img 0
 
 case "${LB_BUILD_WITH_CHROOT}" in
 	true)
@@ -406,13 +453,9 @@ case "${LB_BUILD_WITH_CHROOT}" in
 		;;
 esac
 
-Lodetach ${MAIN_DISK}
+Remove_partitions chroot/binary.img
 
-if [ -n "${MAKEDEV}" ]
-then
-	rm -rf chroot/dev
-	mv chroot/dev.tmp chroot/dev
-fi
+${LB_ROOT_COMMAND} umount chroot/dev
 
 if [ "${FAKE_MTAB}" = "true" ]
 then

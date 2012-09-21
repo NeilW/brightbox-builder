@@ -1,3 +1,11 @@
+brightbox-builder (3.0.2-0ubuntu6) precise; urgency=low
+
+  * Improve kvm_hdd script to support grub2 >= v2.00
+    - direct install grub if >= v2.00
+    - bind mount devices
+
+ -- Neil Wilson <neil@aldur.co.uk>  Fri, 21 Sep 2012 15:43:26 +0100
+
 brightbox-builder (3.0.2-0ubuntu5) oneiric; urgency=low
 
   * Add extended journal and expansion blocks to ext4 image
