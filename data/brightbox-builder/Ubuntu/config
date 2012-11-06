@@ -17,10 +17,10 @@ lb config noauto \
 	--security true --source true --source-images none --backports false  \
 	--volatile true --apt-indices none --clean \
 	--binary-images hdd --binary-filesystem ext4 \
-        --hdd-size 20% --hdd-label "ubuntu-rootfs" \
+        --hdd-size "${hdd_size}" --hdd-label "ubuntu-rootfs" \
+	--hdd-data-partition-start "${data_partition_start}" \
 	--chroot-filesystem none --archive-areas "${archive_areas}" \
 	--parent-archive-areas "${archive_areas}" \
-	--bootstrap-flavour standard \
 	--parent-mirror-bootstrap "${archive}" \
 	--parent-mirror-chroot "${archive}" \
 	--parent-mirror-chroot-security "${security}" \
@@ -40,7 +40,7 @@ lb config noauto \
 	--mirror-chroot-volatile "${archive}" \
 	--mirror-chroot-backports none \
 	--net-tarball false --username "${username}" --exposed-root false \
-	--keyring-packages ubuntu-keyring --linux-flavours virtual \
+	--keyring-packages ubuntu-keyring \
 	--linux-packages '' \
 	--initsystem none --initramfs none --mode ubuntu --tasksel tasksel \
 	--bootloader grub2 --debian-installer-gui false \

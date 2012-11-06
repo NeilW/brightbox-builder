@@ -52,6 +52,8 @@ export package_list="${package_list}"
 export name="${name}"
 export description="${description}"
 export compatibility="${compatibility}"
+export hdd_size="${hdd_size:-20%}"
+export data_partition_start="${data_partition_start}"
 EOF
 }
 

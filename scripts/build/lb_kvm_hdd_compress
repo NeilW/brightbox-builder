@@ -1,0 +1,82 @@
+#!/bin/bash
+
+## live-build(7) - System Build Scripts
+## Copyright (C) 2006-2011 Daniel Baumann <daniel@debian.org>
+##
+## live-build comes with ABSOLUTELY NO WARRANTY; for details see COPYING.
+## This is free software, and you are welcome to redistribute it
+## under certain conditions; see COPYING for details.
+
+
+set -e
+
+# Including common functions
+. "${LB_BASE:-/usr/share/live/build}"/scripts/build.sh
+
+# Setting static variables
+DESCRIPTION="$(Echo 'Convert disk image to Qcow2 format')"
+HELP=""
+USAGE="${PROGRAM} [--force]"
+
+Arguments "${@}"
+
+# Reading configuration files
+Read_conffiles config/all config/common config/bootstrap config/chroot config/binary config/source
+Set_defaults
+
+if ! In_list hdd "${LB_BINARY_IMAGES}"
+then
+	exit 0
+fi
+
+# Requiring stage file
+Require_stagefile .stage/kvm_hdd_root .stage/kvm_hdd_grub2
+
+# Checking stage file
+Check_stagefile .stage/kvm_hdd_compress
+
+# Checking lock file
+Check_lockfile .lock
+
+# Creating lock file
+Create_lockfile .lock
+
+dist_ge() { [[ "$1" > "$2" || "$1" = "$2" ]]; }
+
+# Checking depends
+if dist_ge "$LB_DISTRIBUTION" precise
+then
+  Check_package chroot/usr/bin/qemu-img qemu-utils
+else
+  Check_package chroot/usr/bin/qemu-img qemu-kvm
+fi
+
+# Restoring cache
+Restore_cache cache/packages_binary
+
+# Installing packages
+Install_package
+
+
+TARGET_NAME="${LB_DISTRIBUTION}-${LB_ARCHITECTURES}-$$"
+
+Echo_message "Converting hdd image to Qcow2 format ..."
+case "${LB_BUILD_WITH_CHROOT}" in
+	true)
+	    Chroot chroot "qemu-img convert -O qcow2 -c binary.img ${TARGET_NAME}"
+	    mv chroot/${TARGET_NAME} ${TARGET_NAME}
+	    ;;
+	false)
+	    qemu-img convert -O qcow2 -c chroot/binary.img "${TARGET_NAME}"
+	    ;;
+esac
+rm -f chroot/binary.img
+
+# Saving cache
+Save_cache cache/packages_binary
+
+# Removing depends
+Remove_package
+
+# Creating stage file
+Create_stagefile .stage/kvm_hdd_compress

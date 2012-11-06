@@ -48,6 +48,13 @@ Exit ()
 		Save_cache cache/packages_chroot
 	fi
 
+	Echo_message "Removing mapped partitions..."
+
+	if [ -f chroot/binary.img ]
+	then
+	        kpartx -dv chroot/binary.img
+	fi
+
 	return ${VALUE}
 }
 

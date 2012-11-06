@@ -1,0 +1,84 @@
+#!/bin/sh
+
+## live-build(7) - System Build Scripts
+## Copyright (C) 2006-2011 Daniel Baumann <daniel@debian.org>
+##
+## live-build comes with ABSOLUTELY NO WARRANTY; for details see COPYING.
+## This is free software, and you are welcome to redistribute it
+## under certain conditions; see COPYING for details.
+
+
+set -e
+
+# Including common functions
+. "${LB_BASE:-/usr/share/live/build}"/scripts/build.sh
+
+# Setting static variables
+DESCRIPTION="$(Echo 'mount root partition')"
+HELP=""
+USAGE="${PROGRAM} {install|remove} [--force]"
+
+Arguments "${@}"
+
+# Ensure that a system is built as root
+lb testroot
+
+# Reading configuration files
+Read_conffiles config/all config/common config/bootstrap config/chroot config/binary config/source
+Set_defaults
+
+# Requiring stage file
+Require_stagefile .stage/kvm_hdd_mkfs
+
+case "${1}" in
+	install)
+		Echo_message "Begin mount root partition"
+
+		# Checking stage file
+		Check_stagefile .stage/kvm_root_mounted
+
+		# Checking lock file
+		Check_lockfile .lock
+
+		# Creating lock file
+		Create_lockfile .lock
+
+		if [ "${LB_USE_FAKEROOT}" != "true" ]
+		then
+			Check_mapped_partitions
+			Echo_message "Temporarily mounting root partition on ${TARGET_PARTITION}"
+
+			mkdir -p ${TARGET_PARTITION}
+			${LB_ROOT_COMMAND} mount ${ROOT_PARTITION_DEVICE} ${TARGET_PARTITION}
+		fi
+
+		# Creating stage file
+		Create_stagefile .stage/kvm_root_mounted
+		;;
+
+	remove)
+		Echo_message "Begin unmount of root partition"
+
+		# Checking lock file
+		Check_lockfile .lock
+
+		# Creating lock file
+		Create_lockfile .lock
+
+		# Unmounting device mapper partitions
+		if [ "${LB_USE_FAKEROOT}" != "true" ]
+		then
+			Check_mapped_partitions
+			Echo_message "Removing temporary root partition mount on ${TARGET_PARTITION}"
+			${LB_ROOT_COMMAND} umount ${TARGET_PARTITION}
+			rmdir ${TARGET_PARTITION}
+		fi
+
+		# Removing stage file
+		rm -f .stage/kvm_root_mounted
+		;;
+
+	*)
+		Usage
+		;;
+esac

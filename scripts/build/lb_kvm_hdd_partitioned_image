@@ -1,0 +1,176 @@
+#!/bin/sh
+
+## live-build(7) - System Build Scripts
+## Copyright (C) 2006-2011 Daniel Baumann <daniel@debian.org>
+##
+## live-build comes with ABSOLUTELY NO WARRANTY; for details see COPYING.
+## This is free software, and you are welcome to redistribute it
+## under certain conditions; see COPYING for details.
+
+
+set -e
+
+# Including common functions
+. "${LB_BASE:-/usr/share/live/build}"/scripts/build.sh
+
+# Setting static variables
+DESCRIPTION="$(Echo 'create correct size of disk image')"
+HELP=""
+USAGE="${PROGRAM} [--force]"
+
+#Creates a binary.img file in the chroot directory.
+
+Arguments "${@}"
+
+# Reading configuration files
+Read_conffiles config/all config/common config/bootstrap config/chroot config/binary config/source
+Set_defaults
+
+# Don't bother if no hdd required.
+if ! In_list hdd "${LB_BINARY_IMAGES}"
+then
+	exit 0
+fi
+
+binary_image=binary.img
+
+Echo_message "Begin creating disk image ${binary_image} ..."
+
+# Requiring stage file
+Require_stagefile .stage/chroot_proc
+Require_stagefile .stage/kvm_rootfs
+
+# Checking stage file
+Check_stagefile .stage/kvm_hdd_partitioned_image
+
+# Checking lock file
+Check_lockfile .lock
+
+# Creating lock file
+Create_lockfile .lock
+
+# Checking depends
+Check_package chroot/sbin/parted parted
+
+Scale_number()
+{
+	SCALE_PERCENTAGE=$(echo "$2" | sed 's/%//')
+	expr "$1" \* \( 100 + "${SCALE_PERCENTAGE}" \) / 100 
+}
+
+# Validation checks
+
+case "${LB_ARCHITECTURES}" in
+	sparc)
+		PARTITION_TABLE_TYPE="sun"
+		;;
+	*)
+		PARTITION_TABLE_TYPE="msdos"
+		;;
+esac
+
+case "${LB_BINARY_FILESYSTEM}" in
+	ext2|ext3|ext4)
+		PARTITION_TYPE="ext2"
+		;;
+
+	fat16|fat32)
+		PARTITION_TYPE="${LB_BINARY_FILESYSTEM}"
+		;;
+
+	*)
+		Echo_error "Unsupported binary filesystem %s" "${LB_BINARY_FILESYSTEM}"
+		exit 1
+		;;
+esac
+
+
+# Restoring cache
+Restore_cache cache/packages_binary
+
+# Installing depends
+Install_package
+
+# Remove old binary
+if [ -f "chroot/${binary_image}" ]
+then
+	rm -f "chroot/${binary_image}"
+fi
+
+# Enforce fat32 if we find individual files bigger than 2GB
+if [ "${LB_BINARY_FILESYSTEM}" = "fat16" ] && [ -n "$(find binary -size +1999M)" ]
+then
+	Echo_warning "FAT16 doesn't support files larger than 2GB, automatically enforcing FAT32."
+
+	LB_BINARY_FILESYSTEM="fat32"
+	export LB_BINARY_FILESYSTEM
+fi
+
+# Enforce fat32 if we have images in total bigger than 2GB
+if [ "${LB_BINARY_FILESYSTEM}" = "fat16" ] && [ "$(du -s binary | awk '{ print $1 }')" -gt "1900000" ]
+then
+	Echo_warning "FAT16 doesn't support partitions larger than 2GB, automatically enforcing FAT32"
+
+	LB_BINARY_FILESYSTEM="fat32"
+	export LB_BINARY_FILESYSTEM
+fi
+
+# Everything which comes here needs to be cleaned up,
+DU_DIM="$(du -ms binary | cut -f1)"
+REAL_DIM="$(Calculate_partition_size ${DU_DIM} ${LB_BINARY_FILESYSTEM})"
+Echo_message "Files in root image take up ${DU_DIM}M on disk"
+case "${LB_HDD_SIZE}" in
+	auto)
+		ROOT_PARTITION_SIZE="${REAL_DIM}"
+		ROOT_RESERVED='-m 0'
+		;;
+	*%)
+		ROOT_PARTITION_SIZE=$(Scale_number "${REAL_DIM}" "${LB_HDD_SIZE}")
+		ROOT_RESERVED=''
+		;;
+	*)	
+		ROOT_PARTITION_SIZE="${LB_HDD_SIZE}"
+		ROOT_RESERVED=''
+		;;
+esac
+#Round up to nearest 256M so that inode calculations work properly
+ROOT_PARTITION_SIZE=$(expr \( ${ROOT_PARTITION_SIZE} / 256 + 1 \) \* 256)
+Echo_message "Required root partition size is ${ROOT_PARTITION_SIZE}M"
+if [ "${LB_HDD_DATA_PARTITION_START}" ]
+then
+    if [ "${LB_HDD_DATA_PARTITION_START}" -le "${ROOT_PARTITION_SIZE}" ]
+    then
+	Echo_error "Data partition starts before root partition ends"
+	exit 1
+    fi
+fi
+
+#add in the partition header and convert to sectors
+REQUIRED_HDD_SIZE=$(expr ${ROOT_PARTITION_SIZE} \* 1024 + 64)
+
+Echo_message "Creating disk image of ${REQUIRED_HDD_SIZE}K"
+truncate --size=${REQUIRED_HDD_SIZE}K "chroot/${binary_image}"
+
+Echo_message "Adding root partition"
+
+Chroot chroot parted -s -a none -- "${binary_image}" mklabel ${PARTITION_TABLE_TYPE}
+Chroot chroot parted -s -a none -- "${binary_image}" mkpart primary ${PARTITION_TYPE} 64s -65s
+
+if [ "${LB_HDD_DATA_PARTITION_START}" ]
+then
+    REQUIRED_HDD_SIZE=$(expr \( "${LB_HDD_DATA_PARTITION_START}" + \
+      "${LB_HDD_DATA_PARTITION_SIZE}" \) \* 1024 + 32 )
+    Echo_message "Creating ${LB_HDD_DATA_PARTITION_SIZE}MB data partition"
+    Echo_message "Extending disk to ${REQUIRED_HDD_SIZE}K "
+    truncate --size=${REQUIRED_HDD_SIZE}K "chroot/${binary_image}"
+    Chroot chroot parted -s -a none -- "${binary_image}" mkpart primary ${LB_HDD_DATA_PARTITION_START}MiB -65s
+fi
+
+# Saving cache
+Save_cache cache/packages_binary
+
+# Removing depends
+Remove_package
+
+# Creating stage file
+Create_stagefile .stage/kvm_hdd_partitioned_image

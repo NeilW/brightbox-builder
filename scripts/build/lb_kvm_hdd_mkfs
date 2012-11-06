@@ -1,0 +1,136 @@
+#!/bin/sh
+
+## live-build(7) - System Build Scripts
+## Copyright (C) 2006-2011 Daniel Baumann <daniel@debian.org>
+##
+## live-build comes with ABSOLUTELY NO WARRANTY; for details see COPYING.
+## This is free software, and you are welcome to redistribute it
+## under certain conditions; see COPYING for details.
+
+
+set -e
+
+# Including common functions
+. "${LB_BASE:-/usr/share/live/build}"/scripts/build.sh
+
+# Setting static variables
+DESCRIPTION="$(Echo 'Create root filesystem')"
+HELP=""
+USAGE="${PROGRAM} [--force]"
+
+
+Arguments "${@}"
+
+# Reading configuration files
+Read_conffiles config/all config/common config/bootstrap config/chroot config/binary config/source
+Set_defaults
+
+if ! In_list hdd "${LB_BINARY_IMAGES}"
+then
+	exit 0
+fi
+
+Echo_message "Begin formatting root partition"
+
+# Requiring stage file
+Require_stagefile .stage/chroot_proc .stage/kvm_kpartx .stage/chroot_dev
+
+# Checking stage file
+Check_stagefile .stage/kvm_hdd_mkfs
+
+# Checking lock file
+Check_lockfile .lock
+
+# Creating lock file
+Create_lockfile .lock
+
+# Checking depends
+Check_package chroot/sbin/mkdosfs dosfstools
+Check_package chroot/usr/share/doc/mtools mtools
+
+if [ "${LB_ARCHITECTURES}" = "sparc" ]
+then
+	case "${LB_BINARY_FILESYSTEM}" in
+		ext2|ext3|ext4)
+			Check_package chroot/sbin/mkfs.${LB_BINARY_FILESYSTEM} e2fsprogs
+			;;
+
+		*)
+			Echo_error "Sparc only supports booting from ext2, ext3, ext4 or ufs."
+			exit 1
+			;;
+	esac
+fi
+
+# Restoring cache
+Restore_cache cache/packages_binary
+
+# Installing depends
+Install_package
+
+# Enforce fat32 if we find individual files bigger than 2GB
+if [ "${LB_BINARY_FILESYSTEM}" = "fat16" ] && [ -n "$(find binary -size +1999M)" ]
+then
+	Echo_warning "FAT16 doesn't support files larger than 2GB, automatically enforcing FAT32."
+
+	LB_BINARY_FILESYSTEM="fat32"
+	export LB_BINARY_FILESYSTEM
+fi
+
+# Enforce fat32 if we have images in total bigger than 2GB
+if [ "${LB_BINARY_FILESYSTEM}" = "fat16" ] && [ "$(du -s binary | awk '{ print $1 }')" -gt "1900000" ]
+then
+	Echo_warning "FAT16 doesn't support partitions larger than 2GB, automatically enforcing FAT32"
+
+	LB_BINARY_FILESYSTEM="fat32"
+	export LB_BINARY_FILESYSTEM
+fi
+
+case "${LB_BINARY_FILESYSTEM}" in
+	ext2|ext3|ext4)
+		MKFS="${LB_BINARY_FILESYSTEM}"
+		MKFS_OPTIONS="-J size=128 -E resize=4294967295 -L ${LB_HDD_LABEL} ${ROOT_RESERVED}"
+		;;
+
+	fat16)
+		MKFS="vfat"
+		MKFS_OPTIONS="-F 16 -n ${LB_HDD_LABEL}"
+		;;
+
+	fat32)
+		MKFS="vfat"
+		MKFS_OPTIONS="-F 32 -n ${LB_HDD_LABEL}"
+		;;
+esac
+
+Check_mapped_partitions
+
+case "${LB_BUILD_WITH_CHROOT}" in
+	true)
+		if ! Chroot chroot "test -s /etc/mtab"
+		then
+			Chroot chroot "ln -sf /proc/mounts /etc/mtab"
+			FAKE_MTAB="true"
+		fi
+		
+		Chroot chroot "mkfs.${MKFS} ${MKFS_OPTIONS} ${ROOT_PARTITION_DEVICE}"
+		;;
+
+	false)
+		mkfs.${MKFS} ${MKFS_OPTIONS} ${ROOT_PARTITION_DEVICE}
+		;;
+esac
+
+if [ "${FAKE_MTAB}" = "true" ]
+then
+	Chroot chroot "rm -f /etc/mtab"
+fi
+
+# Saving cache
+Save_cache cache/packages_binary
+
+# Removing depends
+Remove_package
+
+# Creating stage file
+Create_stagefile .stage/kvm_hdd_mkfs

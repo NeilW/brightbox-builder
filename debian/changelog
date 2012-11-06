@@ -1,3 +1,15 @@
+brightbox-builder (3.0.2.7~alpha1) precise; urgency=low
+
+  * config: Remove default specification of kernel flavour
+  * config: Remove bootstrap flavour
+  * config: Add support for fixed disk sizes
+  * lb_config: Add support for lvm data partition
+  * Add config for the precise mysql image 
+  * lb_kvm: move qcow coversion to separate script
+  * lb_kvm: move disk creation and partitioning to separate scripts
+
+ -- Neil Wilson <neil@aldur.co.uk>  Wed, 24 Oct 2012 11:16:09 +0100
+
 brightbox-builder (3.0.2-0ubuntu6) precise; urgency=low
 
   * Improve kvm_hdd script to support grub2 >= v2.00

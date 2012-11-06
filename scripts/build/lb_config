@@ -85,6 +85,8 @@ USAGE="${PROGRAM}   [--apt apt|aptitude]\n\
 \t    [--isohybrid-options OPTION|\"OPTIONS\"]\n\
 \t    [--hdd-label LABEL]\n\
 \t    [--hdd-size MB]\n\
+\t    [--hdd-data-partition-start MB]\n\
+\t    [--hdd-data-partition-size MB]\n\
 \t    [--iso-application NAME]\n\
 \t    [--iso-preparer NAME]\n\
 \t    [--iso-publisher NAME]\n\
@@ -168,7 +170,7 @@ Local_arguments ()
 		package-lists:,security:,volatile:,backports:,binary-filesystem:,binary-images:,
 		apt-indices:,bootappend-install:,bootappend-live:,bootloader:,checksums:,compression:,build-with-chroot:,
 		debian-installer:,debian-installer-distribution:,debian-installer-preseedfile:,debian-installer-gui:,
-		grub-splash:,hostname:,isohybrid-options:,hdd-label:,hdd-size:,iso-application:,iso-preparer:,iso-publisher:,
+		grub-splash:,hostname:,isohybrid-options:,hdd-label:,hdd-size:,hdd-data-partition-start:,hdd-data-partition-size:,iso-application:,iso-preparer:,iso-publisher:,
 		iso-volume:,jffs2-eraseblock:,memtest:,net-root-filesystem:,net-root-mountoptions:,
 		net-root-path:,net-root-server:,net-cow-filesystem:,net-cow-mountoptions:,net-cow-path:,
 		net-cow-server:,net-tarball:,swap-file-path:,swap-file-size:,syslinux-theme:,
@@ -677,6 +679,16 @@ Local_arguments ()
 
 			--hdd-size)
 				LB_HDD_SIZE="${2}"
+				shift 2
+				;;
+
+			--hdd-data-partition-start)
+				LB_HDD_DATA_PARTITION_START="${2}"
+				shift 2
+				;;
+
+			--hdd-data-partition-size)
+				LB_HDD_DATA_PARTITION_SIZE="${2}"
 				shift 2
 				;;
 
@@ -1344,6 +1356,14 @@ LB_HDD_LABEL="${LB_HDD_LABEL}"
 # \$LB_HDD_SIZE: set hdd filesystem size
 # (Default: ${LB_HDD_SIZE})
 LB_HDD_SIZE="${LB_HDD_SIZE}"
+
+# \$LB_HDD_DATA_PARTITON_START: set the start point for a data partition
+# (Default: unset)
+LB_HDD_DATA_PARTITION_START="${LB_HDD_DATA_PARTITION_START}"
+
+# \$LB_HDD_DATA_PARTITON_SIZE: set the start point for a data partition
+# (Default: ${LB_HDD_DATA_PARTITION_SIZE:=100}MB)
+LB_HDD_DATA_PARTITION_SIZE="${LB_HDD_DATA_PARTITION_SIZE}"
 
 # \$LB_ISO_APPLICATION: set iso author
 # (Default: ${LB_ISO_APPLICATION})

@@ -1,0 +1,261 @@
+#!/bin/sh
+
+## live-build(7) - System Build Scripts
+## Copyright (C) 2006-2011 Daniel Baumann <daniel@debian.org>
+##
+## live-build comes with ABSOLUTELY NO WARRANTY; for details see COPYING.
+## This is free software, and you are welcome to redistribute it
+## under certain conditions; see COPYING for details.
+
+
+set -e
+
+# Including common functions
+. "${LB_BASE:-/usr/share/live/build}"/scripts/build.sh
+
+# Setting static variables
+DESCRIPTION="$(Echo 'Install Grub2 boot sector')"
+HELP=""
+USAGE="${PROGRAM} [--force]"
+
+Arguments "${@}"
+
+# Reading configuration files
+Read_conffiles config/all config/common config/bootstrap config/chroot config/binary config/source
+Set_defaults
+
+if ! In_list hdd "${LB_BINARY_IMAGES}"
+then
+	exit 0
+fi
+
+# Requiring stage file
+Require_stagefile .stage/chroot_proc .stage/kvm_kpartx .stage/chroot_dev .stage/kvm_hdd
+
+# Checking stage file
+Check_stagefile .stage/kvm_hdd_grub2
+
+# Checking lock file
+Check_lockfile .lock
+
+# Creating lock file
+Create_lockfile .lock
+
+
+Add_boot_config()
+{
+    local ROOT_DEVICE TARGET_PARTITION kernel initrd
+    ROOT_DEVICE="$1"
+    TARGET_PARTITION="$2"
+    Echo_message "Obtaining UUID"
+    eval $(${LB_ROOT_COMMAND} blkid -o udev "${ROOT_DEVICE}")
+
+    # Find kernel and initrd
+    kernel=$(ls ${TARGET_PARTITION}/boot/vmlinuz* | head -1|sed "s|${TARGET_PARTITION}||")
+    initrd=$(ls ${TARGET_PARTITION}/boot/initrd* | head -1|sed "s|${TARGET_PARTITION}||")
+
+    if [ -z "${kernel}" ]
+    then
+	    Echo_error "Missing kernel"
+	    exit 1
+    elif [ -z "${initrd}" ]
+    then
+	    Echo_error "Missing initrd"
+	    exit 1
+    elif [ -z "${ID_FS_UUID}" ]
+    then
+    	    Echo_error "Missing UUID"
+	    exit 1
+    fi
+
+    # Create boot config
+    Echo_message "Creating boot config for UUID ${ID_FS_UUID}"
+
+    # Clean up grub v1 stuff
+    mkdir -p chroot/binary.tmp/boot/grub
+    rm -f chroot/binary.tmp/boot/grub/menu.lst chroot/binary.tmp/boot/grub/default binary.tmp/boot/grub/gfxblacklist.txt
+
+    cat > chroot/binary.tmp/boot/grub/grub.cfg <<EOF
+# Patented Grub2 GerritUp boot file
+# run update-grub for a real one
+#
+insmod ext2
+search --no-floppy --fs-uuid --set ${ID_FS_UUID}
+linux	${kernel} root=UUID=${ID_FS_UUID} ro quiet nosplash
+initrd  ${initrd}
+boot
+EOF
+
+    cat > chroot/binary.tmp/boot/grub/load.cfg <<EOF
+search.fs_uuid ${ID_FS_UUID} root
+set prefix=(\$root)/boot/grub
+EOF
+}
+
+# Run grub commands in the chroot and write to the disk image.
+Chroot_install_grub2()
+{
+    # Uses TARGET_PARTITION, ROOT_PARTITION_DEVICE and MAIN_DISK from env
+    local TARGET_OPTIONS INSTALL_DEVICE INSTALL_DRIVE MODULES
+    TARGET_OPTIONS="${2}"
+    INSTALL_DEVICE="${1}"
+    INSTALL_DRIVE='(hd9)'
+    MODULES="biosdisk ext2 part_msdos search_fs_uuid"
+
+
+    cat > ${TARGET_PARTITION}/boot/grub/device.map <<EOF
+${INSTALL_DRIVE}	${MAIN_DISK}
+${INSTALL_DEVICE}	${ROOT_PARTITION_DEVICE}
+EOF
+
+    #Copy over boot files
+    Echo_message "Copying boot files"
+    grubdir=${TARGET_PARTITION}/boot/grub
+    localedir=${TARGET_PARTITION}/usr/share/locale
+    cp -a ${TARGET_PARTITION}/usr/lib/grub/i386-pc/* ${grubdir}
+    mkdir -p ${grubdir}/locale
+    for dir in ${localedir}/* ${localedir}-langpack/*; do
+      if test -f "$dir/LC_MESSAGES/grub.mo"; then
+	cp -f "$dir/LC_MESSAGES/grub.mo" "${grubdir}/locale/${dir##*/}.mo"
+      fi
+    done
+
+    #Create grub environment
+    Echo_message "Checking Grub environment"
+    if ! test -f ${TARGET_PARTITION}/grubenv; then
+	Chroot chroot grub-editenv binary.tmp/boot/grub/grubenv create
+    fi
+
+    #Create boot sector image
+    Echo_message "Creating boot sector"
+    Chroot chroot grub-mkimage -v ${TARGET_OPTIONS} -p binary.tmp/boot/grub -c binary.tmp/boot/grub/load.cfg --output binary.tmp/boot/grub/core.img ${MODULES}
+
+
+    Echo_message "Installing boot sector"
+    Chroot chroot ${grub_setup} -v -b boot.img -c core.img -d binary.tmp/boot/grub -m binary.tmp/boot/grub/device.map -r "${INSTALL_DEVICE}" "${INSTALL_DRIVE}"
+    rm ${grubdir}/device.map
+}
+
+#Run grub commands directly in the disk image
+Direct_install_grub2() {
+    local main_disk target_partition
+    main_disk="${1}"
+    target_partition="${2}"
+    Echo_message "Direct installing grub2..."
+    if [ ! -e "${target_partition}/usr/sbin/grub-install" ]
+    then
+        Echo_error "Missing grub2 files in binary image - aborting"
+	exit 1
+    fi
+
+    Echo_message "Bind mounting system devices"
+    for word in dev proc sys 
+    do
+        ${LB_ROOT_COMMAND} mount --bind /${word} ${target_partition}/${word}
+    done
+
+    if [ -b "${target_partition}/${main_disk}" ]
+    then
+	Echo_message "Running grub-install"
+	Chroot "${target_partition}" grub-install --debug --recheck "${main_disk}"
+    else
+        Echo_error "Target main disk not a block device - skipping"
+    fi
+
+    Echo_message "unmounting system devices"
+    for word in sys proc dev
+    do
+        ${LB_ROOT_COMMAND} umount ${target_partition}/${word}
+    done
+
+}
+
+case "${LB_BOOTLOADER}" in
+	grub)
+		Check_package chroot/usr/sbin/grub grub
+		;;
+	syslinux)
+		Check_package chroot/usr/bin/syslinux syslinux
+		;;
+	grub2)
+		Check_package chroot/usr/sbin/grub-install grub-pc
+		;;
+esac
+
+# Restoring cache
+Restore_cache cache/packages_binary
+
+# Installing depends
+Install_package
+
+# Make a note of the disk partitions
+Check_mapped_partitions
+
+if [ "${LB_BOOTLOADER}" = "syslinux" ]
+then
+	dd if=/usr/lib/syslinux/mbr.bin of="${MAIN_DISK}" bs=440 count=1
+fi
+
+
+if [ "${LB_BOOTLOADER}" = "grub2" ]
+then
+	Echo_message "Installing grub2 ..."
+	case "${LB_BUILD_WITH_CHROOT}" in
+		true)
+			Add_boot_config "${ROOT_PARTITION_DEVICE}" "${TARGET_PARTITION}"
+
+			# Check grub version
+			grub_version=`Chroot chroot grub-install --version`
+			grub_setup=grub-setup
+			# Pick installation method based on version
+			case "${grub_version}" in
+			    *1.98*)
+				Chroot_install_grub2 '(hd9,1)'
+				;;
+			    *1.99*)
+				Chroot_install_grub2 '(hd9,msdos1)' '-O i386-pc'
+				;;
+			    *2.00*)
+			        Direct_install_grub2 "${MAIN_DISK}" "${TARGET_PARTITION}"
+				;;
+			esac
+			;;
+		*)	echo "Not implemented"
+			exit 1
+			;;
+	esac
+fi
+
+if [ "${LB_BOOTLOADER}" = "syslinux" ]
+then
+	case "${LB_BUILD_WITH_CHROOT}" in
+		true)
+			Chroot chroot "syslinux ${ROOT_PARTITION_DEVICE}"
+			;;
+
+		false)
+			syslinux ${ROOT_PARTITION_DEVICE}
+			;;
+	esac
+fi
+
+case "${LB_BUILD_WITH_CHROOT}" in
+	true)
+		Chroot chroot "parted -s ${MAIN_DISK} set 1 boot on" || true
+		Chroot chroot "parted -s ${MAIN_DISK} set 1 lba off" || true
+		;;
+
+	false)
+		parted -s "${MAIN_DISK}" set 1 boot on || true
+		parted -s "${MAIN_DISK}" set 1 lba off || true
+		;;
+esac
+
+# Saving cache
+Save_cache cache/packages_binary
+
+# Removing depends
+Remove_package
+
+# Creating stage file
+Create_stagefile .stage/kvm_hdd_grub2

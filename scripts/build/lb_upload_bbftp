@@ -28,7 +28,7 @@ Set_defaults
 Echo_message "Begin uploading image to FTP"
 
 # Requiring stage file
-Require_stagefile .stage/kvm_hdd
+Require_stagefile .stage/kvm_hdd_compress
 
 # Checking stage file
 Check_stagefile .stage/bb_upload

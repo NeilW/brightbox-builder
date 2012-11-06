@@ -34,74 +34,69 @@ Set_defaults
 # Setup cleanup function
 Setup_cleanup
 
+if [ "${LB_BUILD_WITH_CHROOT}" != "true" ]
+then
+  Echo_error "KVM building without chroot not supported"
+  exit 1
+fi
+
 # Preparing root filesystem
 lb binary_chroot ${*}
 
-if [ "${LB_BUILD_WITH_CHROOT}" = "true" ]
-then
-	# Configuring chroot
-	lb chroot_devpts install ${*}
-	lb chroot_proc install ${*}
-	lb chroot_selinuxfs install ${*}
-	lb chroot_sysfs install ${*}
-	lb chroot_hosts install ${*}
-	lb chroot_resolv install ${*}
-	lb chroot_hostname install ${*}
-	lb chroot_sysv-rc install ${*}
-	lb chroot_upstart install ${*}
-	lb chroot_apt install-binary ${*}
-	lb chroot_archives chroot install ${*}
-fi
+# Configuring chroot
+#lb chroot_devpts install ${*}
+lb chroot_proc install ${*}
+lb chroot_selinuxfs install ${*}
+lb chroot_sysfs install ${*}
+lb chroot_hosts install ${*}
+lb chroot_resolv install ${*}
+lb chroot_hostname install ${*}
+lb chroot_sysv-rc install ${*}
+lb chroot_upstart install ${*}
+lb chroot_apt install-binary ${*}
+lb chroot_archives chroot install ${*}
 
 # Building root filesystem
 lb binary_rootfs ${*}
 lb kvm_rootfs ${*}
 
-# Prepare images
-#lb binary_packagelists ${*}
-#lb binary_linux-image ${*}
-#lb binary_debian-installer ${*}
-#lb binary_memtest ${*}
-#lb binary_grub ${*}
-#lb binary_grub2 ${*}
-#lb binary_syslinux ${*}
-#lb binary_yaboot ${*}
-#lb binary_silo ${*}
-#lb binary_disk ${*}
-#lb binary_win32-loader ${*}
-#lb binary_includes ${*}
-#lb binary_local-includes ${*}
-#lb binary_hooks ${*}
-#lb binary_checksums ${*}
+# Creating disk image
+lb kvm_hdd_partitioned_image ${*}
 
-if [ "${LB_BUILD_WITH_CHROOT}" != "true" ]
-then
-	lb chroot_devpts install ${*}
-	lb chroot_proc install ${*}
-	lb chroot_selinuxfs install ${*}
-	lb chroot_sysfs install ${*}
-fi
+# Map disk image
+lb kvm_hdd_kpartx install ${*}
+lb chroot_dev install ${*}
 
-# Building images
-lb kvm_hdd ${*}
-#lb kvm_install-grub ${*}
+# Make filesystem on disk image root_partition
+lb kvm_hdd_mkfs ${*}
 
-if [ "${LB_BUILD_WITH_CHROOT}" = "true" ]
-then
-	# Deconfiguring chroot
-	rm -f .stage/chroot_archives
-	lb chroot_apt remove ${*}
-	lb chroot_hostname remove ${*}
-	lb chroot_resolv remove ${*}
-	lb chroot_hosts remove ${*}
-	lb chroot_upstart remove ${*}
-	lb chroot_sysv-rc remove ${*}
-	lb chroot_dpkg remove ${*}
-	lb chroot_debianchroot remove ${*}
-fi
+# Mount disk image root partition
+lb kvm_hdd_mount_root install ${*}
+
+# Build bootable image
+lb kvm_hdd_root ${*}
+lb kvm_grub2 ${*}
+
+# Unmount and unmap disk image
+lb kvm_hdd_mount_root remove ${*}
+lb chroot_dev remove ${*}
+lb kvm_hdd_kpartx remove ${*}
+
+# Compress image
+lb kvm_hdd_compress ${*}
+
+# Deconfiguring chroot
+rm -f .stage/chroot_archives
+lb chroot_apt remove ${*}
+lb chroot_hostname remove ${*}
+lb chroot_resolv remove ${*}
+lb chroot_hosts remove ${*}
+lb chroot_upstart remove ${*}
+lb chroot_sysv-rc remove ${*}
+lb chroot_dpkg remove ${*}
+lb chroot_debianchroot remove ${*}
 
 lb chroot_sysfs remove ${*}
 lb chroot_selinuxfs remove ${*}
 lb chroot_proc remove ${*}
-lb chroot_devpts remove ${*}
-#lb kvm_clear-mappings ${*}
+#lb chroot_devpts remove ${*}

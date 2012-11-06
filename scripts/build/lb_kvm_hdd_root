@@ -1,0 +1,63 @@
+#!/bin/sh
+
+## live-build(7) - System Build Scripts
+## Copyright (C) 2006-2011 Daniel Baumann <daniel@debian.org>
+##
+## live-build comes with ABSOLUTELY NO WARRANTY; for details see COPYING.
+## This is free software, and you are welcome to redistribute it
+## under certain conditions; see COPYING for details.
+
+
+set -e
+
+# Including common functions
+. "${LB_BASE:-/usr/share/live/build}"/scripts/build.sh
+
+# Setting static variables
+DESCRIPTION="$(Echo 'build disk image')"
+HELP=""
+USAGE="${PROGRAM} [--force]"
+
+#Creates a binary.img file in the chroot directory.
+
+Arguments "${@}"
+
+# Reading configuration files
+Read_conffiles config/all config/common config/bootstrap config/chroot config/binary config/source
+Set_defaults
+
+if ! In_list hdd "${LB_BINARY_IMAGES}"
+then
+	exit 0
+fi
+
+Echo_message "Begin installing root image"
+
+# Requiring stage file
+Require_stagefile .stage/kvm_root_mounted 
+
+# Checking stage file
+Check_stagefile .stage/kvm_hdd_root
+
+# Checking lock file
+Check_lockfile .lock
+
+# Creating lock file
+Create_lockfile .lock
+
+Check_mapped_partitions
+
+case "${LB_BINARY_FILESYSTEM}" in
+	fat*)
+		CP_OPTIONS="-L"
+		;;
+esac
+
+Echo_message "Copying across root filesystem. This may take a while..."
+cp -a -T ${CP_OPTIONS} binary/ ${TARGET_PARTITION}
+
+# Saving cache
+Save_cache cache/packages_binary
+
+# Creating stage file
+Create_stagefile .stage/kvm_hdd_root

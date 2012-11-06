@@ -50,6 +50,7 @@ Remove_package ()
 		case "${LB_APT}" in
 			apt|apt-get)
 				Chroot chroot "apt-get remove --purge ${APT_OPTIONS} ${_LB_PACKAGES}"
+				Chroot chroot "apt-get autoremove --purge ${APT_OPTIONS}"
 				;;
 
 			aptitude)

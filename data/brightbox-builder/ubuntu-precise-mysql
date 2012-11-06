@@ -1,0 +1,8 @@
+architectures="x86_64"
+name="Ubuntu Precise 12.04 MySQL"
+description="MySQL server with cloud-init"
+compatibility=0
+distribution_config=Ubuntu
+release=precise
+data_partition_start=10240
+package_list=brightbox-ubuntu-${release}-mysql
